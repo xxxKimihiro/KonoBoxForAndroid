@@ -69,3 +69,19 @@ This VM has **no `/dev/kvm`**, so the emulator runs under slow software CPU emul
   `adb shell "am start -a android.intent.action.VIEW -d 'ss://<base64(method:pass)>@host:port#Name' moe.nb4a.debug"`.
 - Give the emulator generous idle time between UI actions; blind coordinate taps are
   unreliable while `system_server` is under load.
+
+### Core version (sing-box / libcore)
+
+- The core is pinned in `buildScript/lib/core/get_source_env.sh` to MatsuriDayo's
+  `sing-box` `1.12.19-neko-1` and `libneko`; both are already the **tip** of the fork's
+  maintenance branches (`/sing-box` `1.12.x`, `/libneko` default), so there is no newer
+  in-lineage version to bump to. Moving to vanilla SagerNet `sing-box` 1.13.x is a
+  fork migration (libcore's `box.go`/`box_include.go` depend on neko-specific APIs) and
+  is not a drop-in bump.
+- libcore now enables the **Tailscale** endpoint + MagicDNS transport (`box_include.go`).
+  This pulls `github.com/sagernet/tailscale` into `libcore/go.mod`/`go.sum` and grows
+  `libcore.aar` (~38MB → ~51MB). If you change `libcore/`, rebuild with `./run lib core`.
+  Kotlin side emits a `tailscale` endpoint (`SingBoxOptions.Endpoint_TailscaleOptions`)
+  whose `detour` is the main proxy tag (`TAG_PROXY`) so tailnet traffic first goes
+  through the selected subscription node; settings live under global settings
+  (`tailscale*` keys). Live tailnet connectivity needs a real Tailscale auth key.
