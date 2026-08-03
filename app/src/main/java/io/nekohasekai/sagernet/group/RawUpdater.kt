@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.group
 
 import android.annotation.SuppressLint
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
@@ -105,6 +106,14 @@ object RawUpdater : GroupUpdater() {
         if (subscription.forceResolve) forceResolve(proxies, proxyGroup.id)
 
         val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
+
+        // 记录更新前"当前选中的节点"(仅当它属于本次更新的订阅组),
+        // 以便更新后按名字(优先)或订阅顺序把选中/正在连接的节点同步切换到新节点。
+        val selectedProxyId = DataStore.selectedProxy
+        val selectedOldEntity = exists.find { it.id == selectedProxyId }
+        val selectedOldName = selectedOldEntity?.displayName()
+        val selectedOldOrder = selectedOldEntity?.userOrder
+
         val duplicate = ArrayList<String>()
         if (subscription.deduplication) {
             Logs.d("Before deduplication: ${proxies.size}")
@@ -206,6 +215,35 @@ object RawUpdater : GroupUpdater() {
 
         SagerDatabase.proxyDao.deleteProxy(toDelete).also {
             Logs.d("Deleted profiles: $it")
+        }
+
+        // 订阅更新后,把"当前选中/正在连接的节点"同步切换到更新后的节点:
+        // 1) 优先按显示名字匹配(同名节点会原地更新,ID 不变);
+        // 2) 名字变化/被删除时,回退到订阅中相同顺序位置的节点。
+        // 若该节点正在连接且其配置发生变化,则重连服务使其真正切换到新节点。
+        if (selectedOldEntity != null) {
+            val newProxies = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
+                .sortedBy { it.userOrder }
+            var newSelected = newProxies.find { it.displayName() == selectedOldName }
+            if (newSelected == null && selectedOldOrder != null) {
+                newSelected = newProxies.getOrNull((selectedOldOrder - 1).toInt())
+            }
+            if (newSelected != null) {
+                val idChanged = newSelected.id != selectedProxyId
+                if (idChanged) {
+                    DataStore.selectedProxy = newSelected.id
+                    if (DataStore.currentProfile == selectedProxyId) {
+                        DataStore.currentProfile = newSelected.id
+                    }
+                }
+                val runningThisNode = DataStore.serviceState.started &&
+                    DataStore.currentProfile == newSelected.id
+                val beanUpdatedInPlace = toUpdate.any { it.id == newSelected.id }
+                if (runningThisNode && (idChanged || beanUpdatedInPlace)) {
+                    Logs.d("Subscription updated, switching running node to: ${newSelected.displayName()}")
+                    SagerNet.reloadService()
+                }
+            }
         }
 
         val existCount = SagerDatabase.proxyDao.countByGroup(proxyGroup.id).toInt()
