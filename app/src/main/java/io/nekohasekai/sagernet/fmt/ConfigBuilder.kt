@@ -682,6 +682,36 @@ fun buildConfig(
             }
         }
 
+        // Tailscale：作为 endpoint 接入。其控制面/数据面连接通过 detour 强制走当前选中的
+        // 订阅出站(TAG_PROXY),满足“连接先经订阅、再连接境外 tailscale”的要求;
+        // 同时把 tailnet 网段路由到该 endpoint,使发往 tailnet 的流量经此转发。
+        if (!forTest && DataStore.tailscaleEnabled && DataStore.tailscaleAuthKey.isNotBlank()) {
+            val tsTag = "tailscale"
+            endpoints = mutableListOf<SingBoxOption>().apply {
+                add(Endpoint_TailscaleOptions().apply {
+                    type = "tailscale"
+                    tag = tsTag
+                    detour = TAG_PROXY
+                    auth_key = DataStore.tailscaleAuthKey
+                    accept_routes = DataStore.tailscaleAcceptRoutes
+                    if (DataStore.tailscaleControlUrl.isNotBlank()) {
+                        control_url = DataStore.tailscaleControlUrl
+                    }
+                    if (DataStore.tailscaleHostname.isNotBlank()) {
+                        hostname = DataStore.tailscaleHostname
+                    }
+                    if (DataStore.tailscaleExitNode.isNotBlank()) {
+                        exit_node = DataStore.tailscaleExitNode
+                    }
+                })
+            }
+            // tailnet CGNAT 网段 (IPv4 100.64.0.0/10, IPv6 fd7a:115c:a1e0::/48) 走 tailscale endpoint
+            route.rules.add(0, Rule_DefaultOptions().apply {
+                ip_cidr = listOf("100.64.0.0/10", "fd7a:115c:a1e0::/48")
+                outbound = tsTag
+            })
+        }
+
         if (forTest) {
             dns.rules = listOf()
         } else {
