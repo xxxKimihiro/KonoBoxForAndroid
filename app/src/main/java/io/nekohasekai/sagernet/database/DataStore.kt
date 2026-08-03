@@ -164,6 +164,14 @@ object DataStore : OnPreferenceDataStoreChangeListener {
 
     var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui" }
 
+    // Tailscale：以 endpoint 形式接入,其连接经当前选中的订阅出站转发(先连订阅再连 tailscale)
+    var tailscaleEnabled by configurationStore.boolean("tailscaleEnabled") { false }
+    var tailscaleAuthKey by configurationStore.string("tailscaleAuthKey")
+    var tailscaleControlUrl by configurationStore.string("tailscaleControlUrl")
+    var tailscaleHostname by configurationStore.string("tailscaleHostname")
+    var tailscaleExitNode by configurationStore.string("tailscaleExitNode")
+    var tailscaleAcceptRoutes by configurationStore.boolean("tailscaleAcceptRoutes") { false }
+
     // protocol
 
     var globalAllowInsecure by configurationStore.boolean(Key.GLOBAL_ALLOW_INSECURE) { false }

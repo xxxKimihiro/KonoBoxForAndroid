@@ -113,9 +113,41 @@ public class SingBoxOptions {
 
         public List<SingBoxOption> outbounds;
 
+        public List<SingBoxOption> endpoints;
+
         public RouteOptions route;
 
         public ExperimentalOptions experimental;
+
+    }
+
+    // Tailscale endpoint (sing-box `endpoints` with "type": "tailscale").
+    // 内嵌 DialerOptions 的 detour 字段用于强制其控制/数据连接经指定出站(订阅节点)转发。
+    public static class Endpoint_TailscaleOptions extends Outbound {
+
+        public String detour;
+
+        public String state_directory;
+
+        public String auth_key;
+
+        public String control_url;
+
+        public Boolean ephemeral;
+
+        public String hostname;
+
+        public Boolean accept_routes;
+
+        public String exit_node;
+
+        public Boolean exit_node_allow_lan_access;
+
+        public List<String> advertise_routes;
+
+        public Boolean advertise_exit_node;
+
+        public String udp_timeout;
 
     }
 

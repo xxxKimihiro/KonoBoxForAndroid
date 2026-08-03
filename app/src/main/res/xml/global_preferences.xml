@@ -246,4 +246,34 @@
             app:key="showBottomBar"
             app:title="@string/show_bottom_bar" />
     </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/tailscale">
+        <SwitchPreference
+            app:defaultValue="false"
+            app:icon="@drawable/ic_baseline_nat_24"
+            app:key="tailscaleEnabled"
+            app:summary="@string/tailscale_enable_sum"
+            app:title="@string/tailscale_enable" />
+        <EditTextPreference
+            app:key="tailscaleAuthKey"
+            app:summary="@string/tailscale_auth_key_sum"
+            app:title="@string/tailscale_auth_key" />
+        <EditTextPreference
+            app:key="tailscaleControlUrl"
+            app:title="@string/tailscale_control_url"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="tailscaleHostname"
+            app:title="@string/tailscale_hostname"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="tailscaleExitNode"
+            app:summary="@string/tailscale_exit_node_sum"
+            app:title="@string/tailscale_exit_node"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:defaultValue="false"
+            app:key="tailscaleAcceptRoutes"
+            app:title="@string/tailscale_accept_routes" />
+    </PreferenceCategory>
 </PreferenceScreen>
