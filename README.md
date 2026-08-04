@@ -1,31 +1,38 @@
-# NekoBox for Android
+# KonoBox for Android
 
 [![API](https://img.shields.io/badge/API-21%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=21)
-[![Releases](https://img.shields.io/github/v/release/MatsuriDayo/NekoBoxForAndroid)](https://github.com/MatsuriDayo/NekoBoxForAndroid/releases)
+[![Releases](https://img.shields.io/github/v/release/xxxKimihiro/KonoBoxForAndroid)](https://github.com/xxxKimihiro/KonoBoxForAndroid/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-sing-box / universal proxy toolchain for Android.
+基于 sing-box 的 Android 代理客户端（由 [NekoBox for Android](https://github.com/MatsuriDayo/NekoBoxForAndroid) 衍生）。
 
-一款使用 sing-box 的 Android 通用代理软件.
+A sing-box based Android proxy client, forked from [NekoBox for Android](https://github.com/MatsuriDayo/NekoBoxForAndroid).
 
 ## 下载 / Downloads
 
-[![GitHub All Releases](https://img.shields.io/github/downloads/Matsuridayo/NekoBoxForAndroid/total?label=downloads-total&logo=github&style=flat-square)](https://github.com/Matsuridayo/NekoBoxForAndroid/releases)
+仅通过 GitHub Releases 发布，**不提供 Google Play 版本**。
 
-[GitHub Releases 下载](https://github.com/Matsuridayo/NekoBoxForAndroid/releases)
+Released only via GitHub Releases. **No Google Play build is provided.**
 
-**Google Play 版本自 2024 年 5 月起已被第三方控制，为非开源版本，请不要下载。**
+[![GitHub All Releases](https://img.shields.io/github/downloads/xxxKimihiro/KonoBoxForAndroid/total?label=downloads-total&logo=github&style=flat-square)](https://github.com/xxxKimihiro/KonoBoxForAndroid/releases)
 
-**The Google Play version has been controlled by a third party since May 2024 and is a non-open
-source version. Please do not download it.**
+→ [GitHub Releases](https://github.com/xxxKimihiro/KonoBoxForAndroid/releases)
 
-## 更新日志 & Telegram 发布频道 / Changelog & Telegram Channel
+手机请优先安装 `arm64-v8a` 包。
 
-https://t.me/Matsuridayo
+Prefer the `arm64-v8a` APK on modern phones.
 
-## 项目主页 & 文档 / Homepage & Documents
+## 相对上游的主要改动 / Changes from upstream
 
-https://matsuridayo.github.io
+* 应用更名为 **KonoBox**（`moe.konobox`）
+* **Tailscale** 以 endpoint 形式接入：控制面/数据面经当前选中的订阅节点转发后再进 tailnet
+* 订阅更新后尽量按节点名跟随已选节点，并在需要时自动重连
+* Release 构建可自动递增版本号，并与 GitHub Release 标签对齐
+
+* Rebranded as **KonoBox** (`moe.konobox`)
+* **Tailscale** endpoint support: traffic goes through the selected subscription outbound first, then into the tailnet
+* Prefer following the selected node by name across subscription updates, with reconnect when needed
+* Release workflow can auto-bump versions and keep GitHub Release tags in sync
 
 ## 支持的代理协议 / Supported Proxy Protocols
 
@@ -41,55 +48,45 @@ https://matsuridayo.github.io
 * TUIC
 * Hysteria 1/2
 * WireGuard
-* Trojan-Go (trojan-go-plugin)
-* NaïveProxy (naive-plugin)
-* Mieru (mieru-plugin)
+* Tailscale（内置 endpoint）
+* Trojan-Go / NaïveProxy / Mieru（需对应插件）
 
-请到[这里](https://matsuridayo.github.io/nb4a-plugin/)下载插件以获得完整的代理支持.
+部分协议仍依赖插件；本仓库默认不捆绑全部第三方插件。
 
-Please visit [here](https://matsuridayo.github.io/nb4a-plugin/) to download plugins for full proxy
-supports.
+Some protocols still need plugins; this repo does not ship every third-party plugin by default.
 
 ## 支持的订阅格式 / Supported Subscription Format
 
-* 一些广泛使用的格式 (如 Shadowsocks, ClashMeta 和 v2rayN)
+* 常见格式（如 Shadowsocks、ClashMeta、v2rayN）
 * sing-box 出站
 
-仅支持解析出站，即节点。分流规则等信息会被忽略。
+仅解析出站节点；分流规则等信息会被忽略。
 
-* Some widely used formats (like Shadowsocks, ClashMeta and v2rayN)
+* Common formats (Shadowsocks, ClashMeta, v2rayN, etc.)
 * sing-box outbound
 
-Only resolving outbound, i.e. nodes, is supported. Information such as diversion rules are ignored.
+Only outbounds / nodes are parsed; routing rules and similar metadata are ignored.
 
-## 捐助 / Donate
+## Tailscale 简要说明 / Tailscale notes
 
-<details>
+1. 在全局设置中启用 Tailscale，并填入 auth key（`tskey-...`）
+2. 选择可用的订阅节点后连接 VPN
+3. Control server / Hostname / Exit node / Accept subnet routes 等一般可留空或保持默认
 
-如果这个项目对您有帮助, 可以通过捐赠的方式帮助我们维持这个项目.
-
-捐赠满等额 50 USD 可以在「[捐赠榜](https://mtrdnt.pages.dev/donation_list)」显示头像, 如果您未被添加到这里,
-欢迎联系我们补充.
-
-Donations of 50 USD or more can display your avatar on
-the [Donation List](https://mtrdnt.pages.dev/donation_list). If you are not added here, please
-contact us to add it.
-
-USDT TRC20
-
-`TRhnA7SXE5Sap5gSG3ijxRmdYFiD4KRhPs`
-
-XMR
-
-`49bwESYQjoRL3xmvTcjZKHEKaiGywjLYVQJMUv79bXonGiyDCs8AzE3KiGW2ytTybBCpWJUvov8SjZZEGg66a4e59GXa6k5`
-
-</details>
+1. Enable Tailscale in global settings and paste an auth key (`tskey-...`)
+2. Select a working subscription node, then connect the VPN
+3. Control server / Hostname / Exit node / Accept subnet routes can usually stay empty / default
 
 ## Credits
+
+基于 / Based on:
+
+- [MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid)
 
 Core:
 
 - [SagerNet/sing-box](https://github.com/SagerNet/sing-box)
+- [MatsuriDayo/sing-box](https://github.com/MatsuriDayo/sing-box) / [MatsuriDayo/libneko](https://github.com/MatsuriDayo/libneko)
 
 Android GUI:
 
