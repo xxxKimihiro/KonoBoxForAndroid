@@ -127,6 +127,9 @@ public class SingBoxOptions {
 
         public String detour;
 
+        // DialerOptions.domain_resolver：解析 controlplane 等域名时必须指定 DNS server tag
+        public String domain_resolver;
+
         public String state_directory;
 
         public String auth_key;

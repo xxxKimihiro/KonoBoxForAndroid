@@ -692,6 +692,9 @@ fun buildConfig(
                     type = "tailscale"
                     tag = tsTag
                     detour = TAG_PROXY
+                    // sing-box 1.12+ 要求 NewDialer 指定 domain_resolver，否则解析
+                    // controlplane.tailscale.com 会直接失败：missing domain resolver...
+                    domain_resolver = "dns-remote"
                     auth_key = DataStore.tailscaleAuthKey
                     accept_routes = DataStore.tailscaleAcceptRoutes
                     if (DataStore.tailscaleControlUrl.isNotBlank()) {
