@@ -2,22 +2,90 @@ name: Release Build
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release Tag"
-        required: true
+      version:
+        description: "Optional version name. Leave empty to auto bump patch (1.4.2 -> 1.4.3)."
+        required: false
+        type: string
       publish:
-        description: "Publish: If want ignore"
+        description: "Publish: leave empty to publish; set y to skip"
         required: false
+        type: string
       play:
-        description: "Play: If want ignore"
+        description: "Play: leave empty to build Play AAB; set y to skip (recommended)"
         required: false
+        default: "y"
+        type: string
+
+permissions:
+  contents: write
+
 jobs:
-  libcore:
-    name: Native Build (LibCore)
+  version:
+    name: Bump Version
     runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.bump.outputs.version_name }}
+      version_code: ${{ steps.bump.outputs.version_code }}
+      commit_sha: ${{ steps.bump.outputs.commit_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+      - name: Bump nb4a.properties
+        id: bump
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+
+          VERSION_NAME=$(grep '^VERSION_NAME=' nb4a.properties | cut -d= -f2)
+          VERSION_CODE=$(grep '^VERSION_CODE=' nb4a.properties | cut -d= -f2)
+          VERSION_CODE=$((VERSION_CODE + 1))
+
+          if [ -n "${INPUT_VERSION}" ]; then
+            VERSION_NAME="${INPUT_VERSION}"
+          else
+            major=$(echo "${VERSION_NAME}" | cut -d. -f1)
+            minor=$(echo "${VERSION_NAME}" | cut -d. -f2)
+            patch=$(echo "${VERSION_NAME}" | cut -d. -f3)
+            if [ -z "${major}" ] || [ -z "${minor}" ] || [ -z "${patch}" ]; then
+              echo "VERSION_NAME must look like major.minor.patch, got: ${VERSION_NAME}" >&2
+              exit 1
+            fi
+            patch=$((patch + 1))
+            VERSION_NAME="${major}.${minor}.${patch}"
+          fi
+
+          sed -i "s/^VERSION_NAME=.*/VERSION_NAME=${VERSION_NAME}/" nb4a.properties
+          sed -i "s/^VERSION_CODE=.*/VERSION_CODE=${VERSION_CODE}/" nb4a.properties
+
+          echo "Bumped to VERSION_NAME=${VERSION_NAME} VERSION_CODE=${VERSION_CODE}"
+          cat nb4a.properties
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nb4a.properties
+          git commit -m "Bump version to ${VERSION_NAME} (${VERSION_CODE})"
+          git push
+
+          {
+            echo "version_name=${VERSION_NAME}"
+            echo "version_code=${VERSION_CODE}"
+            echo "commit_sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+  libcore:
+    name: Native Build (LibCore)
+    runs-on: ubuntu-latest
+    needs:
+      - version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit_sha }}
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -37,14 +105,18 @@ jobs:
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./run lib core
+
   build:
     name: Build OSS APK
     runs-on: ubuntu-latest
     needs:
+      - version
       - libcore
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit_sha }}
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -76,36 +148,47 @@ jobs:
         with:
           name: APKs
           path: ${{ env.APK }}
+
   publish:
     name: Publish Release
     if: github.event.inputs.publish != 'y'
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - version
+      - build
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit_sha }}
       - name: Donwload Artifacts
         uses: actions/download-artifact@v4
         with:
           name: APKs
           path: artifacts
       - name: Release
+        env:
+          VERSION_NAME: ${{ needs.version.outputs.version_name }}
         run: |
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz
           tar -xvf ghr.tar.gz
           mv ghr*linux_amd64/ghr .
           mkdir apks
           find artifacts -name "*.apk" -exec cp {} apks \;
-          ./ghr -delete -t "${{ github.token }}" -n "${{ github.event.inputs.tag }}" "${{ github.event.inputs.tag }}" apks
+          ./ghr -delete -t "${{ github.token }}" -n "${VERSION_NAME}" "${VERSION_NAME}" apks
+
   play:
     name: Build Play Bundle
     if: github.event.inputs.play != 'y'
     runs-on: ubuntu-latest
     needs:
+      - version
       - libcore
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit_sha }}
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -131,7 +214,7 @@ jobs:
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
           ./gradlew bundlePlayRelease
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: AAB
           path: app/build/outputs/bundle/playRelease/app-play-release.aab
