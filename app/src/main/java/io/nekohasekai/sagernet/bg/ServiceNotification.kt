@@ -7,7 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.text.format.Formatter
 import android.widget.Toast
@@ -109,11 +112,28 @@ class ServiceNotification(
     }
 
     private fun applyAppIcon(builder: NotificationCompat.Builder) {
-        val bmp = BitmapFactory.decodeResource(
-            (service as Context).resources,
-            R.mipmap.ic_launcher,
-        ) ?: return
-        builder.setLargeIcon(bmp)
+        // Adaptive icons (mipmap-anydpi-v26) cannot be decoded via BitmapFactory; resolve the
+        // real launcher drawable from PackageManager instead so the large icon matches the app icon.
+        val context = service as Context
+        val drawable = try {
+            context.packageManager.getApplicationIcon(context.packageName)
+        } catch (_: Exception) {
+            null
+        } ?: return
+        builder.setLargeIcon(drawableToBitmap(drawable))
+    }
+
+    private fun drawableToBitmap(drawable: Drawable): Bitmap {
+        if (drawable is BitmapDrawable && drawable.bitmap != null) {
+            return drawable.bitmap
+        }
+        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 256
+        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 256
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 
     suspend fun postNotificationWakeLockStatus(acquired: Boolean) {
