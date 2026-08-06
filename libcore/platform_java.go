@@ -19,4 +19,8 @@ type BoxPlatformInterface interface {
 	PackageNameByUid(uid int32) (string, error)
 	UIDByPackageName(packageName string) (int32, error)
 	WIFIState() string
+	// LocalInterfaces returns JSON array of network interfaces from Android
+	// (java.net.NetworkInterface). Used because Go net.Interface.Addrs() hits
+	// netlink and fails with permission denied on untrusted Android apps.
+	LocalInterfaces() string
 }

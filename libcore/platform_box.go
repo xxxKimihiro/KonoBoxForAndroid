@@ -95,14 +95,49 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformInterfaceGetter() bool {
 }
 
 func (w *boxPlatformInterfaceWrapper) Interfaces() ([]adapter.NetworkInterface, error) {
-	// Tailscale endpoint Start() calls NetworkManager.UpdateInterfaces(), which always
-	// goes through platform.Interfaces() when a platform interface is registered.
-	// The previous stub returned errors.New("wtf") and made Tailscale fail to start
-	// (taking the whole proxy service down with it).
-	//
-	// On Android, iface.Addrs() talks to netlink and untrusted apps often get
-	// "route ip+net: netlinkrib: permission denied". Never call Addrs / InterfaceFromNet;
-	// name/index/flags are enough for Tailscale's netmon getter + protect path.
+	// Tailscale Start() → UpdateInterfaces() → platform.Interfaces().
+	// Prefer Android-side enumeration: Go net.Interface.Addrs() uses netlink and
+	// fails with "route ip+net: netlinkrib: permission denied" on untrusted apps.
+	// Without addresses Tailscale reports HaveV4/V6=false, SetNetworkUp(false),
+	// pauses control, and never authenticates.
+	if raw := intfBox.LocalInterfaces(); raw != "" && raw != "[]" {
+		var items []struct {
+			Name         string   `json:"name"`
+			Index        int      `json:"index"`
+			MTU          int      `json:"mtu"`
+			Flags        int      `json:"flags"`
+			HardwareAddr string   `json:"hardware_addr"`
+			Addresses    []string `json:"addresses"`
+		}
+		if err := json.Unmarshal([]byte(raw), &items); err == nil && len(items) > 0 {
+			out := make([]adapter.NetworkInterface, 0, len(items))
+			for _, it := range items {
+				var addrs []netip.Prefix
+				for _, a := range it.Addresses {
+					if p, err := netip.ParsePrefix(a); err == nil {
+						addrs = append(addrs, p)
+					}
+				}
+				var hw net.HardwareAddr
+				if it.HardwareAddr != "" {
+					hw, _ = net.ParseMAC(it.HardwareAddr)
+				}
+				out = append(out, adapter.NetworkInterface{
+					Interface: control.Interface{
+						Index:        it.Index,
+						MTU:          it.MTU,
+						Name:         it.Name,
+						HardwareAddr: hw,
+						Flags:        net.Flags(it.Flags),
+						Addresses:    addrs,
+					},
+					Type: C.InterfaceTypeOther,
+				})
+			}
+			return out, nil
+		}
+	}
+	// Fallback: names/flags only (no addresses) — better than erroring out.
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return []adapter.NetworkInterface{}, nil

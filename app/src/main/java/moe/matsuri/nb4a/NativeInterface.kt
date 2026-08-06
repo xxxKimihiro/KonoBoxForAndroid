@@ -17,7 +17,12 @@ import io.nekohasekai.sagernet.utils.PackageCache
 import libcore.BoxPlatformInterface
 import libcore.Libcore
 import libcore.NB4AInterface
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 
 class NativeInterface : BoxPlatformInterface, NB4AInterface {
 
@@ -73,6 +78,62 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
             app.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val connectionInfo = wifiManager.connectionInfo
         return "${connectionInfo.ssid},${connectionInfo.bssid}"
+    }
+
+    /**
+     * Enumerate interfaces via java.net.NetworkInterface (works without netlink).
+     * Flags match Go net.Flags bit values so Tailscale netmon can see HaveV4/HaveV6.
+     */
+    override fun localInterfaces(): String {
+        val arr = JSONArray()
+        val ifaces = try {
+            NetworkInterface.getNetworkInterfaces()
+        } catch (_: Exception) {
+            null
+        } ?: return "[]"
+        for (iface in ifaces) {
+            try {
+                var flags = 0
+                // net.FlagUp=1, Broadcast=2, Loopback=4, PointToPoint=8, Multicast=16, Running=32
+                if (iface.isUp) flags = flags or 1 or 32
+                if (iface.supportsMulticast()) flags = flags or 16
+                if (iface.isLoopback) flags = flags or 4
+                if (iface.isPointToPoint) flags = flags or 8
+                if (!iface.isLoopback && !iface.isPointToPoint) flags = flags or 2
+                val addrs = JSONArray()
+                for (ifa in iface.interfaceAddresses) {
+                    val host = when (val a = ifa.address) {
+                        is Inet4Address -> a.hostAddress
+                        is Inet6Address -> a.hostAddress?.substringBefore('%')
+                        else -> a.hostAddress
+                    } ?: continue
+                    addrs.put("$host/${ifa.networkPrefixLength}")
+                }
+                val hw = try {
+                    iface.hardwareAddress?.joinToString(":") { b ->
+                        String.format("%02x", b)
+                    } ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
+                arr.put(
+                    JSONObject()
+                        .put("name", iface.name)
+                        .put("index", iface.index)
+                        .put("mtu", try {
+                            iface.mtu
+                        } catch (_: Exception) {
+                            0
+                        })
+                        .put("flags", flags)
+                        .put("hardware_addr", hw)
+                        .put("addresses", addrs)
+                )
+            } catch (_: Exception) {
+                // skip unreadable interface
+            }
+        }
+        return arr.toString()
     }
 
     // nb4a interface
