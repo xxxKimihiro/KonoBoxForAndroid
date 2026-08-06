@@ -26,11 +26,13 @@ Prefer the `arm64-v8a` APK on modern phones.
 
 * 应用更名为 **KonoBox**（`moe.konobox`）
 * **Tailscale** 以 endpoint 形式接入：控制面/数据面经当前选中的订阅节点转发后再进 tailnet
+* **可信 Wi‑Fi 直连**：白名单 SSID 下保持 VPN 连接，但内部全部走 Direct；离开后自动恢复所选代理
 * 订阅更新后尽量按节点名跟随已选节点，并在需要时自动重连
 * Release 构建可自动递增版本号，并与 GitHub Release 标签对齐
 
 * Rebranded as **KonoBox** (`moe.konobox`)
 * **Tailscale** endpoint support: traffic goes through the selected subscription outbound first, then into the tailnet
+* **Trusted Wi‑Fi Direct**: on whitelisted SSIDs, keep VPN up but route all traffic Direct; restore the selected proxy when leaving
 * Prefer following the selected node by name across subscription updates, with reconnect when needed
 * Release workflow can auto-bump versions and keep GitHub Release tags in sync
 
@@ -76,6 +78,18 @@ Only outbounds / nodes are parsed; routing rules and similar metadata are ignore
 1. Enable Tailscale in global settings and paste an auth key (`tskey-...`)
 2. Select a working subscription node, then connect the VPN
 3. Control server / Hostname / Exit node / Accept subnet routes can usually stay empty / default
+
+## 可信 Wi‑Fi 直连 / Trusted Wi‑Fi Direct
+
+1. 设置 → **可信 Wi‑Fi** → 打开「可信 Wi‑Fi 下直连」
+2. 在「可信 SSID」中填入家里/公司等 Wi‑Fi 名称（每行一个，精确匹配）
+3. 按提示授予定位 / 附近的 Wi‑Fi 权限（否则可能读不到 SSID）
+4. VPN 可保持开启：连上白名单 Wi‑Fi 后通知栏标题会带 `· Direct`，流量走直连；离开后自动恢复代理节点
+
+1. Settings → **Trusted Wi‑Fi** → enable “Direct on trusted Wi‑Fi”
+2. Add home/office SSIDs under “Trusted SSIDs” (one per line, exact match)
+3. Grant location / nearby Wi‑Fi permission when prompted (otherwise SSID may be unreadable)
+4. Leave VPN on: on a whitelisted SSID the notification title shows `· Direct` and traffic goes Direct; leaving restores the selected proxy
 
 ## Credits
 

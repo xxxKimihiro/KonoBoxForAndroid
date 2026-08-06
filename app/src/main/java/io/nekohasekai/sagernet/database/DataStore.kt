@@ -92,6 +92,13 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
     var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS)
 
+    // Trusted Wi‑Fi whitelist → Direct while VPN stays up
+    var wifiDirectEnabled by configurationStore.boolean(Key.WIFI_DIRECT_ENABLED) { false }
+    var wifiDirectSsids by configurationStore.string(Key.WIFI_DIRECT_SSIDS) { "" }
+    /** Runtime flag: currently applying Direct because of trusted Wi‑Fi. Not persisted. */
+    @Volatile
+    var wifiDirectActive: Boolean = false
+
     //
 
     var isExpert by configurationStore.boolean(Key.APP_EXPERT)
