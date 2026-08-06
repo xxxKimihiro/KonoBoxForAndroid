@@ -91,26 +91,26 @@ func (w *boxPlatformInterfaceWrapper) CreateDefaultInterfaceMonitor(l logger.Log
 }
 
 func (w *boxPlatformInterfaceWrapper) UsePlatformInterfaceGetter() bool {
-	return false
+	return true
 }
 
 func (w *boxPlatformInterfaceWrapper) Interfaces() ([]adapter.NetworkInterface, error) {
 	// Tailscale endpoint Start() calls NetworkManager.UpdateInterfaces(), which always
 	// goes through platform.Interfaces() when a platform interface is registered.
 	// The previous stub returned errors.New("wtf") and made Tailscale fail to start
-	// (taking the whole proxy service down with it). Enumerate real interfaces via net.
+	// (taking the whole proxy service down with it).
+	//
+	// On Android, iface.Addrs() talks to netlink and untrusted apps often get
+	// "route ip+net: netlinkrib: permission denied". Never call Addrs / InterfaceFromNet;
+	// name/index/flags are enough for Tailscale's netmon getter + protect path.
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil, err
+		return []adapter.NetworkInterface{}, nil
 	}
 	out := make([]adapter.NetworkInterface, 0, len(ifaces))
 	for _, iface := range ifaces {
-		ctrlIface, err := control.InterfaceFromNet(iface)
-		if err != nil {
-			continue
-		}
 		out = append(out, adapter.NetworkInterface{
-			Interface: ctrlIface,
+			Interface: control.InterfaceFromNetAddrs(iface, nil),
 			Type:      C.InterfaceTypeOther,
 		})
 	}
