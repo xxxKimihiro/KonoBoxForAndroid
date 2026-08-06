@@ -218,6 +218,20 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         findPreference<SimpleMenuPreference>(Key.AUTO_OUTBOUND_MODE)!!.onPreferenceChangeListener =
             forceReloadListener
+
+        // Tailscale endpoint is baked into the running config; any change needs a full reload.
+        findPreference<SwitchPreference>("tailscaleEnabled")!!.onPreferenceChangeListener =
+            forceReloadListener
+        findPreference<EditTextPreference>("tailscaleAuthKey")!!.onPreferenceChangeListener =
+            forceReloadListener
+        findPreference<EditTextPreference>("tailscaleControlUrl")!!.onPreferenceChangeListener =
+            forceReloadListener
+        findPreference<EditTextPreference>("tailscaleHostname")!!.onPreferenceChangeListener =
+            forceReloadListener
+        findPreference<EditTextPreference>("tailscaleExitNode")!!.onPreferenceChangeListener =
+            forceReloadListener
+        findPreference<SwitchPreference>("tailscaleAcceptRoutes")!!.onPreferenceChangeListener =
+            forceReloadListener
     }
 
     override fun onResume() {
