@@ -1,12 +1,15 @@
 package io.nekohasekai.sagernet.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.preference.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
@@ -34,6 +37,38 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private val reloadListener = Preference.OnPreferenceChangeListener { _, _ ->
         needReload()
         true
+    }
+
+    private val forceReloadListener = Preference.OnPreferenceChangeListener { _, _ ->
+        if (DataStore.serviceState.started) {
+            snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
+                SagerNet.forceReloadService()
+            }.show()
+        }
+        true
+    }
+
+    private fun ensureWifiSsidPermission() {
+        val activity = activity ?: return
+        val needed = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    activity, Manifest.permission.NEARBY_WIFI_DEVICES
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            }
+        }
+        if (ContextCompat.checkSelfPermission(
+                activity, Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (needed.isNotEmpty()) {
+            snackbar(getString(R.string.wifi_direct_need_permission)).show()
+            ActivityCompat.requestPermissions(activity, needed.toTypedArray(), 1001)
+        }
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -168,6 +203,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         tunImplementation.onPreferenceChangeListener = reloadListener
         acquireWakeLock.onPreferenceChangeListener = reloadListener
         globalCustomConfig.onPreferenceChangeListener = reloadListener
+
+        val wifiDirectEnabled = findPreference<SwitchPreference>(Key.WIFI_DIRECT_ENABLED)!!
+        val wifiDirectSsids = findPreference<EditTextPreference>(Key.WIFI_DIRECT_SSIDS)!!
+        wifiDirectSsids.setOnBindEditTextListener(EditTextPreferenceModifiers.Hosts)
+        wifiDirectSsids.isEnabled = wifiDirectEnabled.isChecked
+        wifiDirectEnabled.setOnPreferenceChangeListener { _, newValue ->
+            val enabled = newValue as Boolean
+            wifiDirectSsids.isEnabled = enabled
+            if (enabled) ensureWifiSsidPermission()
+            forceReloadListener.onPreferenceChange(wifiDirectEnabled, newValue)
+        }
+        wifiDirectSsids.onPreferenceChangeListener = forceReloadListener
     }
 
     override fun onResume() {

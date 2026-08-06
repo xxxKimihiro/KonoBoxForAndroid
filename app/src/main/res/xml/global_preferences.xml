@@ -206,6 +206,20 @@
             app:title="@string/allow_access" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="@string/wifi_direct">
+        <SwitchPreference
+            app:defaultValue="false"
+            app:icon="@drawable/ic_baseline_home_24"
+            app:key="wifiDirectEnabled"
+            app:summary="@string/wifi_direct_enable_sum"
+            app:title="@string/wifi_direct_enable" />
+        <EditTextPreference
+            app:icon="@drawable/ic_hardware_router"
+            app:key="wifiDirectSsids"
+            app:summary="@string/wifi_direct_ssids_sum"
+            app:title="@string/wifi_direct_ssids" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="@string/cag_misc">
         <moe.matsuri.nb4a.ui.UrlTestPreference
             app:defaultValue="http://cp.cloudflare.com/"
