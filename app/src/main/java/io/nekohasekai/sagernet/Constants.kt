@@ -51,6 +51,11 @@ object Key {
     // Trusted Wi‑Fi: keep VPN connected but route via Direct
     const val WIFI_DIRECT_ENABLED = "wifiDirectEnabled"
     const val WIFI_DIRECT_SSIDS = "wifiDirectSsids"
+
+    /** Check all subscriptions when the app starts (MainActivity). */
+    const val UPDATE_SUBSCRIPTIONS_ON_START = "updateSubscriptionsOnStart"
+    /** On subscription fetch failure via proxy, retry outside the VPN tunnel. */
+    const val SUBSCRIPTION_UPDATE_DIRECT_FALLBACK = "subscriptionUpdateDirectFallback"
     const val RULES_PROVIDER = "rulesProvider"
     const val LOG_LEVEL = "logLevel"
     const val LOG_BUF_SIZE = "logBufSize"

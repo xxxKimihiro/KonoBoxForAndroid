@@ -29,6 +29,15 @@
     <string name="group_status_proxies_subscription">%d 个配置 | 更新于 %s</string>
     <string name="group_no_difference">%s: 没有变化</string>
     <string name="group_updated">%s: 更新了 %d 个节点</string>
+    <string name="group_toast_updated">%1$s: 更新 %2$d（%3$s）</string>
+    <string name="group_toast_added">+%d 新增</string>
+    <string name="group_toast_changed">~%d 变更</string>
+    <string name="group_toast_deleted">-%d 删除</string>
+    <string name="group_toast_duplicate">%d 重复</string>
+    <string name="update_subscriptions_on_start">启动时更新订阅</string>
+    <string name="update_subscriptions_on_start_sum">打开 App 时在后台检查并刷新全部订阅</string>
+    <string name="subscription_update_direct_fallback">订阅更新失败时直连重试</string>
+    <string name="subscription_update_direct_fallback_sum">经当前代理拉取订阅失败时，改走底层网络（绕过 VPN）重试，避免选中节点挂掉后无法更新订阅。</string>
     <string name="group_show_diff">变化</string>
     <string name="group_delete_confirm_prompt">您确定要删除这个分组吗\?</string>
     <string name="group_added">新增:

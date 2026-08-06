@@ -91,6 +91,8 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
     var wakeResetConnections by configurationStore.boolean(Key.WAKE_RESET_CONNECTIONS)
+    var updateSubscriptionsOnStart by configurationStore.boolean(Key.UPDATE_SUBSCRIPTIONS_ON_START) { true }
+    var subscriptionUpdateDirectFallback by configurationStore.boolean(Key.SUBSCRIPTION_UPDATE_DIRECT_FALLBACK) { true }
 
     // Trusted Wi‑Fi whitelist → Direct while VPN stays up
     var wifiDirectEnabled by configurationStore.boolean(Key.WIFI_DIRECT_ENABLED) { false }
