@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.group
 import android.annotation.SuppressLint
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
@@ -247,6 +248,8 @@ object RawUpdater : GroupUpdater() {
         userInterface?.onUpdateSuccess(
             proxyGroup, changed, added, updated, deleted, duplicate, byUser
         )
+        // Shuffle notification avatar after each successful subscription refresh.
+        ServiceNotification.randomizeConnectedFace()
     }
 
     @Suppress("UNCHECKED_CAST")
