@@ -49,7 +49,12 @@ class ServiceNotification(
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
                 SagerDatabase.groupDao.getById(ent.groupId)?.displayName() else null
-            return if (gn == null) ent.displayName() else "[$gn] ${ent.displayName()}"
+            val base = if (gn == null) ent.displayName() else "[$gn] ${ent.displayName()}"
+            return if (DataStore.wifiDirectActive) {
+                "$base · Direct"
+            } else {
+                base
+            }
         }
     }
 

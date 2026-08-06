@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
+import io.nekohasekai.sagernet.utils.WifiDirectHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,6 +51,7 @@ class BaseService {
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
                 Action.RELOAD -> service.reload()
+                Action.FORCE_RELOAD -> service.forceReload()
                 // Action.SWITCH_WAKE_LOCK -> runOnDefaultDispatcher { service.switchWakeLock() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -192,11 +194,15 @@ class BaseService {
                 }
                 return
             }
+            forceReload()
+        }
+
+        fun forceReload() {
             val s = data.state
             when {
                 s == State.Stopped -> startRunner()
                 s.canStop -> stopRunner(true)
-                else -> Logs.w("Illegal state $s when invoking use")
+                else -> Logs.w("Illegal state $s when invoking forceReload")
             }
         }
 
@@ -273,23 +279,38 @@ class BaseService {
         var upstreamInterfaceName: String?
 
         suspend fun preInit() {
-            DefaultNetworkListener.start(this) {
-                SagerNet.connectivity.getLinkProperties(it)?.also { link ->
-                    SagerNet.underlyingNetwork = it
-                    DataStore.vpnService?.updateUnderlyingNetwork()
-                    //
-                    val oldName = upstreamInterfaceName
-                    if (oldName != link.interfaceName) {
-                        upstreamInterfaceName = link.interfaceName
-                    }
-                    if (oldName != null && upstreamInterfaceName != null && oldName != upstreamInterfaceName) {
-                        Logs.d("Network changed: $oldName -> $upstreamInterfaceName")
-                        if (DataStore.networkChangeResetConnections) {
-                            Libcore.resetAllConnections(true)
+            DefaultNetworkListener.start(this) { network ->
+                if (network != null) {
+                    SagerNet.connectivity.getLinkProperties(network)?.also { link ->
+                        SagerNet.underlyingNetwork = network
+                        DataStore.vpnService?.updateUnderlyingNetwork()
+                        val oldName = upstreamInterfaceName
+                        if (oldName != link.interfaceName) {
+                            upstreamInterfaceName = link.interfaceName
+                        }
+                        if (oldName != null && upstreamInterfaceName != null && oldName != upstreamInterfaceName) {
+                            Logs.d("Network changed: $oldName -> $upstreamInterfaceName")
+                            if (DataStore.networkChangeResetConnections) {
+                                Libcore.resetAllConnections(true)
+                            }
                         }
                     }
+                } else {
+                    SagerNet.underlyingNetwork = null
                 }
+                maybeApplyWifiDirectMode()
             }
+        }
+
+        fun maybeApplyWifiDirectMode() {
+            if (data.state != State.Connected && data.state != State.Connecting) return
+            val wantDirect = WifiDirectHelper.shouldUseDirect()
+            if (wantDirect == DataStore.wifiDirectActive) return
+            Logs.d(
+                "WiFi direct mode -> $wantDirect (ssid=${WifiDirectHelper.currentSsid()})"
+            )
+            DataStore.wifiDirectActive = wantDirect
+            stopRunner(true)
         }
 
         var wakeLock: PowerManager.WakeLock?
@@ -325,9 +346,12 @@ class BaseService {
             val proxy = ProxyInstance(profile, this)
             data.proxy = proxy
             BootReceiver.enabled = DataStore.persistAcrossReboot
+            DataStore.wifiDirectActive = WifiDirectHelper.shouldUseDirect()
+
             if (!data.closeReceiverRegistered) {
                 val filter = IntentFilter().apply {
                     addAction(Action.RELOAD)
+                    addAction(Action.FORCE_RELOAD)
                     addAction(Intent.ACTION_SHUTDOWN)
                     addAction(Action.CLOSE)
                     // addAction(Action.SWITCH_WAKE_LOCK)

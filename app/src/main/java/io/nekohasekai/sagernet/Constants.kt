@@ -48,6 +48,10 @@ object Key {
     const val NETWORK_CHANGE_RESET_CONNECTIONS = "networkChangeResetConnections"
     const val WAKE_RESET_CONNECTIONS = "wakeResetConnections"
 
+    // Trusted Wi‑Fi: keep VPN connected but route via Direct
+    const val WIFI_DIRECT_ENABLED = "wifiDirectEnabled"
+    const val WIFI_DIRECT_SSIDS = "wifiDirectSsids"
+
     /** Check all subscriptions when the app starts (MainActivity). */
     const val UPDATE_SUBSCRIPTIONS_ON_START = "updateSubscriptionsOnStart"
     /** On subscription fetch failure via proxy, retry outside the VPN tunnel. */
@@ -186,6 +190,8 @@ object Action {
     const val SERVICE = "io.nekohasekai.sagernet.SERVICE"
     const val CLOSE = "io.nekohasekai.sagernet.CLOSE"
     const val RELOAD = "io.nekohasekai.sagernet.RELOAD"
+    /** Always rebuild core config (skip selector hot-switch). */
+    const val FORCE_RELOAD = "io.nekohasekai.sagernet.FORCE_RELOAD"
 
     // const val SWITCH_WAKE_LOCK = "io.nekohasekai.sagernet.SWITCH_WAKELOCK"
     const val RESET_UPSTREAM_CONNECTIONS = "moe.konobox.RESET_UPSTREAM_CONNECTIONS"

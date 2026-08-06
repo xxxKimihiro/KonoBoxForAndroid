@@ -26,6 +26,7 @@ import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxOutboundWireguardBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.utils.PackageCache
+import io.nekohasekai.sagernet.utils.WifiDirectHelper
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.plugin.Plugins
@@ -139,7 +140,9 @@ fun buildConfig(
     val directDNS = DataStore.directDns.split("\n")
         .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
     val enableDnsRouting = DataStore.enableDnsRouting
-    val useFakeDns = DataStore.enableFakeDns && !forTest
+    val wifiDirect = !forTest && WifiDirectHelper.shouldUseDirect()
+    if (!forTest) DataStore.wifiDirectActive = wifiDirect
+    val useFakeDns = DataStore.enableFakeDns && !forTest && !wifiDirect
     val needSniff = DataStore.trafficSniffing > 0
     val needSniffOverride = DataStore.trafficSniffing == 2
     val externalIndexMap = ArrayList<IndexEntity>()
@@ -242,6 +245,10 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
+            // Trusted Wi‑Fi: keep VPN up, but default all traffic to Direct/bypass.
+            if (wifiDirect) {
+                final_ = TAG_BYPASS
+            }
         }
 
         // returns outbound tag
@@ -673,7 +680,10 @@ fun buildConfig(
             })
         }
 
-        dns.final_ = if (forTest) "dns-direct" else "dns-remote"
+        dns.final_ = when {
+            forTest || wifiDirect -> "dns-direct"
+            else -> "dns-remote"
+        }
 
         // dns object user rules
         if (enableDnsRouting) {
@@ -691,10 +701,11 @@ fun buildConfig(
                 add(Endpoint_TailscaleOptions().apply {
                     type = "tailscale"
                     tag = tsTag
-                    detour = TAG_PROXY
+                    // Trusted Wi‑Fi 直连模式下不再经订阅节点桥接
+                    detour = if (wifiDirect) TAG_DIRECT else TAG_PROXY
                     // sing-box 1.12+ 要求 NewDialer 指定 domain_resolver，否则解析
                     // controlplane.tailscale.com 会直接失败：missing domain resolver...
-                    domain_resolver = "dns-remote"
+                    domain_resolver = if (wifiDirect) "dns-direct" else "dns-remote"
                     auth_key = DataStore.tailscaleAuthKey
                     accept_routes = DataStore.tailscaleAcceptRoutes
                     if (DataStore.tailscaleControlUrl.isNotBlank()) {

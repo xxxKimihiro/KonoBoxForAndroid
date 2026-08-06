@@ -94,6 +94,13 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var updateSubscriptionsOnStart by configurationStore.boolean(Key.UPDATE_SUBSCRIPTIONS_ON_START) { true }
     var subscriptionUpdateDirectFallback by configurationStore.boolean(Key.SUBSCRIPTION_UPDATE_DIRECT_FALLBACK) { true }
 
+    // Trusted Wi‑Fi whitelist → Direct while VPN stays up
+    var wifiDirectEnabled by configurationStore.boolean(Key.WIFI_DIRECT_ENABLED) { false }
+    var wifiDirectSsids by configurationStore.string(Key.WIFI_DIRECT_SSIDS) { "" }
+    /** Runtime flag: currently applying Direct because of trusted Wi‑Fi. Not persisted. */
+    @Volatile
+    var wifiDirectActive: Boolean = false
+
     //
 
     var isExpert by configurationStore.boolean(Key.APP_EXPERT)
