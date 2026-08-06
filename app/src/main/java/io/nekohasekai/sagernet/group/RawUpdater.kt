@@ -20,7 +20,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.*
-import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
@@ -67,9 +66,9 @@ object RawUpdater : GroupUpdater() {
 
             // 修改默认名字
             if (proxyGroup.name?.startsWith("Subscription #") == true) {
-                var remoteName = fetched.contentDisposition
-                if (!remoteName.isNullOrBlank()) {
-                    remoteName = Util.decodeFilename(remoteName)
+                val disposition = fetched.contentDisposition
+                if (!disposition.isNullOrBlank()) {
+                    val remoteName = Util.decodeFilename(disposition)
                     if (remoteName.isNotBlank()) {
                         proxyGroup.name = remoteName
                     }
