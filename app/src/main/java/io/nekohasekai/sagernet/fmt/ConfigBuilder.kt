@@ -138,8 +138,10 @@ fun buildConfig(
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
         }.toHashSet().toList()).associateBy { it.id }
+    // autoSwitchOnFail：把当前分组成员都放进 selector，连接失败时可热切换而不必整表重建
     val buildSelector =
-        !forTest && group?.isSelector == true && !forExport && autoOutboundMode == AutoOutboundMode.OFF
+        !forTest && group != null && !forExport && autoOutboundMode == AutoOutboundMode.OFF &&
+            (group.isSelector || DataStore.autoSwitchOnFail)
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()

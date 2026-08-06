@@ -218,6 +218,8 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         findPreference<SimpleMenuPreference>(Key.AUTO_OUTBOUND_MODE)!!.onPreferenceChangeListener =
             forceReloadListener
+        findPreference<SwitchPreference>(Key.AUTO_SWITCH_ON_FAIL)!!.onPreferenceChangeListener =
+            forceReloadListener
 
         // Tailscale endpoint is baked into the running config; any change needs a full reload.
         findPreference<SwitchPreference>("tailscaleEnabled")!!.onPreferenceChangeListener =

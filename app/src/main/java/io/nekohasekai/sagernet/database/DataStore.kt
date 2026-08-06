@@ -168,6 +168,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) { CONNECTION_TEST_URL }
     var connectionTestConcurrent by configurationStore.int("connectionTestConcurrent") { 5 }
     var autoOutboundMode by configurationStore.stringToInt(Key.AUTO_OUTBOUND_MODE) { AutoOutboundMode.OFF }
+    var autoSwitchOnFail by configurationStore.boolean(Key.AUTO_SWITCH_ON_FAIL) { true }
     var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
     var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }
