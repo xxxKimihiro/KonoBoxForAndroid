@@ -19,6 +19,7 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     // for TrafficLooper
     var looper: TrafficLooper? = null
+    private var autoOutboundWatcher: AutoOutboundWatcher? = null
 
     override fun buildConfig() {
         super.buildConfig()
@@ -52,10 +53,17 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
         runOnDefaultDispatcher {
             looper = service?.let { TrafficLooper(it.data, this) }
             looper?.start()
+            val svc = service
+            if (svc != null && config.orderFallbackGroups.isNotEmpty()) {
+                autoOutboundWatcher = AutoOutboundWatcher(this, config.orderFallbackGroups)
+                autoOutboundWatcher?.start(svc)
+            }
         }
     }
 
     override fun close() {
+        autoOutboundWatcher?.stop()
+        autoOutboundWatcher = null
         super.close()
         runBlocking {
             looper?.stop()

@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.fmt.*
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.*
+import io.nekohasekai.sagernet.fmt.internal.AutoGroupBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
@@ -69,6 +70,7 @@ data class ProxyEntity(
     var shadowTLSBean: ShadowTLSBean? = null,
     var anyTLSBean: AnyTLSBean? = null,
     var chainBean: ChainBean? = null,
+    var autoGroupBean: AutoGroupBean? = null,
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
 ) : Serializable() {
@@ -95,8 +97,10 @@ data class ProxyEntity(
         const val TYPE_NEKO = 999
 
         const val TYPE_CHAIN = 8
+        const val TYPE_AUTO_GROUP = 23
 
         val chainName by lazy { app.getString(R.string.proxy_chain) }
+        val autoGroupName by lazy { app.getString(R.string.proxy_auto_group) }
 
         @JvmField
         val CREATOR = object : CREATOR<ProxyEntity>() {
@@ -175,6 +179,7 @@ data class ProxyEntity(
             TYPE_SHADOWTLS -> shadowTLSBean = KryoConverters.shadowTLSDeserialize(byteArray)
             TYPE_ANYTLS -> anyTLSBean = KryoConverters.anyTLSDeserialize(byteArray)
             TYPE_CHAIN -> chainBean = KryoConverters.chainDeserialize(byteArray)
+            TYPE_AUTO_GROUP -> autoGroupBean = KryoConverters.autoGroupDeserialize(byteArray)
             TYPE_NEKO -> nekoBean = KryoConverters.nekoDeserialize(byteArray)
             TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
         }
@@ -196,6 +201,7 @@ data class ProxyEntity(
         TYPE_SHADOWTLS -> "ShadowTLS"
         TYPE_ANYTLS -> "AnyTLS"
         TYPE_CHAIN -> chainName
+        TYPE_AUTO_GROUP -> autoGroupName
         TYPE_NEKO -> nekoBean!!.displayType()
         TYPE_CONFIG -> configBean!!.displayType()
         else -> "Undefined type $type"
@@ -221,6 +227,7 @@ data class ProxyEntity(
             TYPE_SHADOWTLS -> shadowTLSBean
             TYPE_ANYTLS -> anyTLSBean
             TYPE_CHAIN -> chainBean
+            TYPE_AUTO_GROUP -> autoGroupBean
             TYPE_NEKO -> nekoBean
             TYPE_CONFIG -> configBean
             else -> error("Undefined type $type")
@@ -229,7 +236,7 @@ data class ProxyEntity(
 
     fun haveLink(): Boolean {
         return when (type) {
-            TYPE_CHAIN -> false
+            TYPE_CHAIN, TYPE_AUTO_GROUP -> false
             else -> true
         }
     }
@@ -358,6 +365,7 @@ data class ProxyEntity(
         shadowTLSBean = null
         anyTLSBean = null
         chainBean = null
+        autoGroupBean = null
         configBean = null
         nekoBean = null
 
@@ -437,6 +445,11 @@ data class ProxyEntity(
                 chainBean = bean
             }
 
+            is AutoGroupBean -> {
+                type = TYPE_AUTO_GROUP
+                autoGroupBean = bean
+            }
+
             is NekoBean -> {
                 type = TYPE_NEKO
                 nekoBean = bean
@@ -470,6 +483,7 @@ data class ProxyEntity(
                 TYPE_SHADOWTLS -> ShadowTLSSettingsActivity::class.java
                 TYPE_ANYTLS -> AnyTLSSettingsActivity::class.java
                 TYPE_CHAIN -> ChainSettingsActivity::class.java
+                TYPE_AUTO_GROUP -> AutoGroupSettingsActivity::class.java
                 TYPE_CONFIG -> ConfigSettingActivity::class.java
                 else -> throw IllegalArgumentException()
             }

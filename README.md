@@ -31,6 +31,7 @@ Prefer the `arm64-v8a` APK on modern phones.
 * 订阅更新结果用 Toast 提示（不再弹 Diff 对话框）
 * 可选「启动时更新订阅」（默认开启）
 * 订阅拉取失败时默认直连重试（绕过 VPN），避免坏节点导致无法更新
+* **自动出站**：全局顺序 fallback / 延迟 urltest（健康检查复用连接测试 URL）；可自建「自动出站组」子集，并作为路由出站
 * Release 构建可自动递增版本号，并与 GitHub Release 标签对齐
 
 * Rebranded as **KonoBox** (`moe.konobox`)
@@ -40,6 +41,7 @@ Prefer the `arm64-v8a` APK on modern phones.
 * Subscription update results use Toast (no Diff dialog)
 * Optional “Update subscriptions on start” (default on)
 * Subscription fetch retries on the underlying network when the proxy path fails (default on)
+* **Auto outbound**: global ordered fallback / latency urltest (health checks reuse Connection Test URL); custom Auto Outbound Group subsets usable as route outbounds
 * Release workflow can auto-bump versions and keep GitHub Release tags in sync
 
 ## 支持的代理协议 / Supported Proxy Protocols
@@ -96,6 +98,16 @@ Only outbounds / nodes are parsed; routing rules and similar metadata are ignore
 2. Add home/office SSIDs under “Trusted SSIDs” (one per line, exact match)
 3. Grant location / nearby Wi‑Fi permission when prompted (otherwise SSID may be unreadable)
 4. Leave VPN on: on a whitelisted SSID the notification title shows `· Direct` and traffic goes Direct; leaving restores the selected proxy
+
+## 自动出站 / Auto Outbound
+
+1. 设置 → **自动出站** → 选择「顺序（fallback）」或「延迟（urltest）」：对当前选中分组的节点生效
+2. 健康检查 / 延迟探测使用「连接测试链接」（`connectionTestURL`）
+3. 自建子集：配置列表 → 添加 → **自动出站组**，挑选成员并选择策略；该配置可选中连接，也可在路由规则里作为出站
+
+1. Settings → **Auto Outbound** → choose “Order (fallback)” or “Latency (urltest)” for the selected group
+2. Health / latency probes use the Connection Test URL (`connectionTestURL`)
+3. Custom subsets: Profiles → Add → **Auto Outbound Group**, pick members and a strategy; usable as the selected profile or as a route outbound
 
 ## Credits
 

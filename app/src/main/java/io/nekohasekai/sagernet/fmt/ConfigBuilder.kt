@@ -10,6 +10,8 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
+import io.nekohasekai.sagernet.fmt.ConfigBuildResult.OrderFallbackGroup
+import io.nekohasekai.sagernet.fmt.internal.AutoGroupBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
@@ -56,8 +58,11 @@ class ConfigBuildResult(
     var trafficMap: Map<String, List<ProxyEntity>>,
     var profileTagMap: Map<Long, String>,
     val selectorGroupId: Long,
+    /** Ordered-fallback selector groups that need app-side health checks. */
+    val orderFallbackGroups: List<OrderFallbackGroup> = emptyList(),
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
+    data class OrderFallbackGroup(val groupTag: String, val memberTags: List<String>)
 }
 
 fun buildConfig(
@@ -82,7 +87,10 @@ fun buildConfig(
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = ArrayList<String>()
+    val orderFallbackGroups = ArrayList<OrderFallbackGroup>()
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
+    val autoOutboundMode =
+        if (forTest || forExport) AutoOutboundMode.OFF else DataStore.autoOutboundMode
 
     fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> {
         val bean = requireBean()
@@ -96,6 +104,7 @@ fun buildConfig(
             }
             return beanList.asReversed()
         }
+        // AutoGroup is a parallel group, not a sequential chain.
         return mutableListOf(this)
     }
 
@@ -129,7 +138,8 @@ fun buildConfig(
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
         }.toHashSet().toList()).associateBy { it.id }
-    val buildSelector = !forTest && group?.isSelector == true && !forExport
+    val buildSelector =
+        !forTest && group?.isSelector == true && !forExport && autoOutboundMode == AutoOutboundMode.OFF
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
@@ -157,6 +167,8 @@ fun buildConfig(
             else -> "prefer_ipv4"
         }
     }
+
+    var resultSelectorGroupId = -1L
 
     return MyOptions().apply {
         if (!forTest && DataStore.enableClashAPI) experimental = ExperimentalOptions().apply {
@@ -249,6 +261,49 @@ fun buildConfig(
             if (wifiDirect) {
                 final_ = TAG_BYPASS
             }
+        }
+
+        fun emitGroupOutbound(
+            groupTag: String,
+            memberTags: List<String>,
+            defaultTag: String?,
+            strategyOrder: Boolean,
+            traffic: List<ProxyEntity>,
+        ): String {
+            if (memberTags.isEmpty()) {
+                // No members: keep a selector pointing nowhere useful; traffic falls to later rules.
+                outbounds.add(0, Outbound_SelectorOptions().apply {
+                    type = "selector"
+                    tag = groupTag
+                    outbounds = listOf(TAG_DIRECT)
+                    default_ = TAG_DIRECT
+                })
+                trafficMap[groupTag] = traffic
+                return groupTag
+            }
+            if (strategyOrder) {
+                outbounds.add(0, Outbound_SelectorOptions().apply {
+                    type = "selector"
+                    tag = groupTag
+                    outbounds = memberTags
+                    default_ = defaultTag?.takeIf { it in memberTags } ?: memberTags.first()
+                    _hack_config_map["interrupt_exist_connections"] = true
+                })
+                orderFallbackGroups.add(OrderFallbackGroup(groupTag, memberTags.toList()))
+            } else {
+                outbounds.add(0, Outbound_URLTestOptions().apply {
+                    type = "urltest"
+                    tag = groupTag
+                    outbounds = memberTags
+                    url = DataStore.connectionTestURL
+                    tolerance = 50
+                    _hack_config_map["interval"] = "3m"
+                    _hack_config_map["idle_timeout"] = "30m"
+                    _hack_config_map["interrupt_exist_connections"] = true
+                })
+            }
+            trafficMap[groupTag] = traffic
+            return groupTag
         }
 
         // returns outbound tag
@@ -466,24 +521,82 @@ fun buildConfig(
             return chainTagOut
         }
 
-        // build outbounds
-        if (buildSelector) {
-            val list = group.id.let { SagerDatabase.proxyDao.getByGroup(it) }
-            list.forEach {
-                tagMap[it.id] = buildChain(it.id, it)
+        fun buildOutboundEntity(chainId: Long, entity: ProxyEntity): String {
+            val bean = entity.requireBean()
+            if (bean is AutoGroupBean) {
+                val memberTags = ArrayList<String>()
+                val trafficSet = HashSet<ProxyEntity>()
+                trafficSet.add(entity)
+                for (proxyId in bean.proxies) {
+                    val item = SagerDatabase.proxyDao.getById(proxyId) ?: continue
+                    if (item.id == entity.id) continue
+                    val nested = item.requireBean()
+                    val tag = if (nested is AutoGroupBean) {
+                        buildOutboundEntity(item.id, item)
+                    } else {
+                        buildChain(item.id, item)
+                    }
+                    memberTags.add(tag)
+                    trafficSet.add(item)
+                }
+                val groupTag = if (chainId == 0L) TAG_PROXY else "ag-${entity.id}"
+                return emitGroupOutbound(
+                    groupTag,
+                    memberTags,
+                    memberTags.firstOrNull(),
+                    bean.strategy == AutoGroupBean.STRATEGY_ORDER,
+                    trafficSet.toList(),
+                )
             }
-            outbounds.add(0, Outbound_SelectorOptions().apply {
-                type = "selector"
-                tag = TAG_PROXY
-                default_ = tagMap[proxy.id]
-                outbounds = tagMap.values.toList()
-            })
-        } else {
-            buildChain(0, proxy)
+            return buildChain(chainId, entity)
+        }
+
+        // build outbounds
+        resultSelectorGroupId = if (buildSelector) group!!.id else -1L
+        when {
+            proxy.requireBean() is AutoGroupBean -> {
+                tagMap[proxy.id] = buildOutboundEntity(0, proxy)
+                resultSelectorGroupId = -1L
+            }
+
+            autoOutboundMode != AutoOutboundMode.OFF && group != null -> {
+                val list = SagerDatabase.proxyDao.getByGroup(group.id).filter {
+                    it.type != ProxyEntity.TYPE_AUTO_GROUP && it.type != ProxyEntity.TYPE_CHAIN
+                }
+                list.forEach {
+                    tagMap[it.id] = buildOutboundEntity(it.id, it)
+                }
+                val memberTags = list.mapNotNull { tagMap[it.id] }
+                val traffic = list.toMutableList().also { it.add(proxy) }
+                emitGroupOutbound(
+                    TAG_PROXY,
+                    memberTags,
+                    tagMap[proxy.id],
+                    autoOutboundMode == AutoOutboundMode.ORDER,
+                    traffic,
+                )
+                resultSelectorGroupId =
+                    if (autoOutboundMode == AutoOutboundMode.ORDER) group.id else -1L
+            }
+
+            buildSelector -> {
+                val list = group!!.id.let { SagerDatabase.proxyDao.getByGroup(it) }
+                list.forEach {
+                    tagMap[it.id] = buildOutboundEntity(it.id, it)
+                }
+                outbounds.add(0, Outbound_SelectorOptions().apply {
+                    type = "selector"
+                    tag = TAG_PROXY
+                    default_ = tagMap[proxy.id]
+                    outbounds = tagMap.values.toList()
+                })
+            }
+
+            else -> buildOutboundEntity(0, proxy)
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
-            tagMap[key] = buildChain(key, p)
+            tagMap[key] = buildOutboundEntity(key, p)
         }
 
         // apply user rules
@@ -792,7 +905,8 @@ fun buildConfig(
             proxy.id,
             trafficMap,
             tagMap,
-            if (buildSelector) group.id else -1L
+            resultSelectorGroupId,
+            orderFallbackGroups.toList(),
         )
     }
 

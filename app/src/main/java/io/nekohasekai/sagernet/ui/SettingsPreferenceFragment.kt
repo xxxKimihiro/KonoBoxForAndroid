@@ -215,6 +215,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             forceReloadListener.onPreferenceChange(wifiDirectEnabled, newValue)
         }
         wifiDirectSsids.onPreferenceChangeListener = forceReloadListener
+
+        findPreference<SimpleMenuPreference>(Key.AUTO_OUTBOUND_MODE)!!.onPreferenceChangeListener =
+            forceReloadListener
     }
 
     override fun onResume() {

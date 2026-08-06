@@ -45,6 +45,9 @@ object Key {
 
     const val CONNECTION_TEST_URL = "connectionTestURL"
 
+    /** Global auto outbound: 0=off, 1=order fallback, 2=latency (urltest). Applies to the selected group. */
+    const val AUTO_OUTBOUND_MODE = "autoOutboundMode"
+
     const val NETWORK_CHANGE_RESET_CONNECTIONS = "networkChangeResetConnections"
     const val WAKE_RESET_CONNECTIONS = "wakeResetConnections"
 
@@ -184,6 +187,12 @@ object GroupOrder {
     const val ORIGIN = 0
     const val BY_NAME = 1
     const val BY_DELAY = 2
+}
+
+object AutoOutboundMode {
+    const val OFF = 0
+    const val ORDER = 1
+    const val LATENCY = 2
 }
 
 object Action {

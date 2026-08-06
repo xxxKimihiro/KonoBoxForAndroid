@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        app:icon="@drawable/ic_social_emoji_symbols"
+        app:key="profileName"
+        app:title="@string/profile_name"
+        app:useSimpleSummaryProvider="true" />
+
+    <moe.matsuri.nb4a.ui.SimpleMenuPreference
+        app:defaultValue="0"
+        app:entries="@array/auto_group_strategy_entry"
+        app:entryValues="@array/int_array_2"
+        app:icon="@drawable/ic_baseline_compare_arrows_24"
+        app:key="autoGroupStrategy"
+        app:title="@string/auto_group_strategy"
+        app:useSimpleSummaryProvider="true" />
+
+</PreferenceScreen>
