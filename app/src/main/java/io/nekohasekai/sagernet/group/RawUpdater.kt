@@ -248,8 +248,6 @@ object RawUpdater : GroupUpdater() {
         userInterface?.onUpdateSuccess(
             proxyGroup, changed, added, updated, deleted, duplicate, byUser
         )
-        // Shuffle notification avatar after each successful subscription refresh.
-        ServiceNotification.randomizeConnectedFace()
     }
 
     @Suppress("UNCHECKED_CAST")

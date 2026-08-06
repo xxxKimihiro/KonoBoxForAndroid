@@ -22,11 +22,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ui.SwitchActivity
 import io.nekohasekai.sagernet.utils.Theme
-import kotlin.random.Random
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -49,21 +47,6 @@ class ServiceNotification(
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
-        private val FACE_ICONS = intArrayOf(
-            R.drawable.ic_notif_face_1,
-            R.drawable.ic_notif_face_2,
-            R.drawable.ic_notif_face_3,
-            R.drawable.ic_notif_face_4,
-            R.drawable.ic_notif_face_5,
-            R.drawable.ic_notif_face_6,
-            R.drawable.ic_notif_face_7,
-            R.drawable.ic_notif_face_8,
-            R.drawable.ic_notif_face_9,
-        )
-
-        @Volatile
-        private var lastFaceIndex = -1
-
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
                 SagerDatabase.groupDao.getById(ent.groupId)?.displayName() else null
@@ -72,23 +55,6 @@ class ServiceNotification(
                 "$base · Direct"
             } else {
                 base
-            }
-        }
-
-        private fun nextFaceResId(): Int {
-            var idx = Random.nextInt(FACE_ICONS.size)
-            if (FACE_ICONS.size > 1 && idx == lastFaceIndex) {
-                idx = (idx + 1) % FACE_ICONS.size
-            }
-            lastFaceIndex = idx
-            return FACE_ICONS[idx]
-        }
-
-        /** Shuffle the connected VPN notification large icon (no-op if not running). */
-        fun randomizeConnectedFace() {
-            val notification = DataStore.baseService?.data?.notification ?: return
-            runOnDefaultDispatcher {
-                notification.postRandomFace()
             }
         }
     }
@@ -137,20 +103,15 @@ class ServiceNotification(
     suspend fun postNotificationTitle(newTitle: String) {
         useBuilder {
             it.setContentTitle(newTitle)
-            applyRandomFace(it)
+            applyAppIcon(it)
         }
         update()
     }
 
-    suspend fun postRandomFace() {
-        useBuilder { applyRandomFace(it) }
-        update()
-    }
-
-    private fun applyRandomFace(builder: NotificationCompat.Builder) {
+    private fun applyAppIcon(builder: NotificationCompat.Builder) {
         val bmp = BitmapFactory.decodeResource(
             (service as Context).resources,
-            nextFaceResId(),
+            R.mipmap.ic_launcher,
         ) ?: return
         builder.setLargeIcon(bmp)
     }
@@ -198,7 +159,7 @@ class ServiceNotification(
 
         runOnMainDispatcher {
             updateActions()
-            useBuilder { applyRandomFace(it) }
+            useBuilder { applyAppIcon(it) }
             show()
         }
     }
