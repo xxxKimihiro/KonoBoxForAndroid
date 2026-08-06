@@ -381,6 +381,17 @@
         <item>leastPing</item>
     </string-array>
 
+    <string-array name="auto_outbound_mode_entry">
+        <item>@string/auto_outbound_off</item>
+        <item>@string/auto_outbound_order</item>
+        <item>@string/auto_outbound_latency</item>
+    </string-array>
+
+    <string-array name="auto_group_strategy_entry">
+        <item>@string/auto_group_strategy_order</item>
+        <item>@string/auto_group_strategy_latency</item>
+    </string-array>
+
 
     <string-array name="group_types">
         <item>@string/group_basic</item>

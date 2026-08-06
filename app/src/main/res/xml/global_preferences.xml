@@ -220,6 +220,18 @@
             app:title="@string/wifi_direct_ssids" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="@string/auto_outbound">
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:defaultValue="0"
+            app:entries="@array/auto_outbound_mode_entry"
+            app:entryValues="@array/int_array_3"
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:key="autoOutboundMode"
+            app:summary="@string/auto_outbound_mode_sum"
+            app:title="@string/auto_outbound_mode"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="@string/cag_misc">
         <moe.matsuri.nb4a.ui.UrlTestPreference
             app:defaultValue="http://cp.cloudflare.com/"

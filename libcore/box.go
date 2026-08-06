@@ -11,11 +11,13 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/matsuridayo/libneko/protect_server"
 	"github.com/matsuridayo/libneko/speedtest"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/boxapi"
+	"github.com/sagernet/sing-box/common/urltest"
 	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	"github.com/sagernet/sing-box/protocol/group"
 
@@ -213,6 +215,26 @@ func (b *BoxInstance) SelectOutbound(tag string) bool {
 	return false
 }
 
+// SelectGroupOutbound switches the selected member of a selector outbound by group tag.
+// groupTag "proxy" (or empty) uses the main selector kept on BoxInstance.
+func (b *BoxInstance) SelectGroupOutbound(groupTag string, tag string) bool {
+	if groupTag == "" || groupTag == "proxy" {
+		return b.SelectOutbound(tag)
+	}
+	if b.Box == nil {
+		return false
+	}
+	outbound, ok := b.Outbound().Outbound(groupTag)
+	if !ok {
+		return false
+	}
+	selector, ok := outbound.(*group.Selector)
+	if !ok {
+		return false
+	}
+	return selector.SelectOutbound(tag)
+}
+
 func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err error) {
 	defer device.DeferPanicToError("box.UrlTest", func(err_ error) { err = err_ })
 	var connectionTracker adapter.ConnectionTracker
@@ -232,6 +254,25 @@ func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err err
 		connectionTracker = mainInstance.v2api.StatsService()
 	}
 	return speedtest.UrlTest(boxapi.CreateProxyHttpClient(mainInstance.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
+}
+
+// UrlTestOutbound probes link by dialing through a specific outbound tag (not the default route).
+func UrlTestOutbound(i *BoxInstance, outboundTag string, link string, timeout int32) (latency int32, err error) {
+	defer device.DeferPanicToError("box.UrlTestOutbound", func(err_ error) { err = err_ })
+	if i == nil || i.Box == nil {
+		return 0, errors.New("core not started")
+	}
+	outbound, ok := i.Outbound().Outbound(outboundTag)
+	if !ok {
+		return 0, fmt.Errorf("outbound not found: %s", outboundTag)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
+	defer cancel()
+	t, err := urltest.URLTest(ctx, link, outbound)
+	if err != nil {
+		return 0, err
+	}
+	return int32(t), nil
 }
 
 var protectCloser io.Closer
