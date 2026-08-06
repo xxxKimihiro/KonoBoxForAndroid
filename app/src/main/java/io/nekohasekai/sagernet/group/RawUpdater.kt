@@ -56,30 +56,19 @@ object RawUpdater : GroupUpdater() {
             proxies = contentText?.let { parseRaw(contentText) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
         } else {
-
-            val response = Libcore.newHttpClient().apply {
-                trySocks5(DataStore.mixedPort)
-                tryH3Direct()
-                when (DataStore.appTLSVersion) {
-                    "1.3" -> restrictedTLS()
-                }
-            }.newRequest().apply {
-                if (DataStore.allowInsecureOnRequest) {
-                    allowInsecure()
-                }
-                setURL(subscription.link)
-                setUserAgent(subscription.customUserAgent.takeIf { it.isNotBlank() } ?: USER_AGENT)
-            }.execute()
-            proxies = parseRaw(Util.getStringBox(response.contentString))
+            val fetched = SubscriptionHttp.fetch(
+                subscription.link,
+                subscription.customUserAgent,
+            )
+            proxies = parseRaw(fetched.content)
                 ?: error(app.getString(R.string.no_proxies_found))
 
-            subscription.subscriptionUserinfo =
-                Util.getStringBox(response.getHeader("Subscription-Userinfo"))
+            subscription.subscriptionUserinfo = fetched.userinfo
 
             // 修改默认名字
             if (proxyGroup.name?.startsWith("Subscription #") == true) {
-                var remoteName = Util.getStringBox(response.getHeader("content-disposition"))
-                if (remoteName.isNotBlank()) {
+                var remoteName = fetched.contentDisposition
+                if (!remoteName.isNullOrBlank()) {
                     remoteName = Util.decodeFilename(remoteName)
                     if (remoteName.isNotBlank()) {
                         proxyGroup.name = remoteName

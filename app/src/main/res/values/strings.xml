@@ -55,6 +55,8 @@
     <string name="group_duplicate">Duplicate: \n%s</string>
     <string name="update_subscriptions_on_start">Update subscriptions on start</string>
     <string name="update_subscriptions_on_start_sum">When the app opens, check and refresh all subscriptions in the background</string>
+    <string name="subscription_update_direct_fallback">Direct fallback for subscription update</string>
+    <string name="subscription_update_direct_fallback_sum">If fetching a subscription via the current proxy fails, retry on the underlying network (bypass VPN). Avoids getting stuck when the selected node is down.</string>
     <!-- misc -->
     <string name="service_mode">Service Mode</string>
     <string name="service_mode_proxy">Proxy only</string>

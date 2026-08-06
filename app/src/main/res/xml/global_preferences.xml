@@ -220,6 +220,12 @@
             app:summary="@string/update_subscriptions_on_start_sum"
             app:title="@string/update_subscriptions_on_start" />
         <SwitchPreference
+            app:defaultValue="true"
+            app:icon="@drawable/ic_baseline_airplanemode_active_24"
+            app:key="subscriptionUpdateDirectFallback"
+            app:summary="@string/subscription_update_direct_fallback_sum"
+            app:title="@string/subscription_update_direct_fallback" />
+        <SwitchPreference
             app:icon="@drawable/baseline_construction_24"
             app:key="enableClashAPI"
             app:summary="@string/enable_clash_api_summary"

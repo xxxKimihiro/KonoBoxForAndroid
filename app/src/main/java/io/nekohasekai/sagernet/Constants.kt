@@ -50,6 +50,8 @@ object Key {
 
     /** Check all subscriptions when the app starts (MainActivity). */
     const val UPDATE_SUBSCRIPTIONS_ON_START = "updateSubscriptionsOnStart"
+    /** On subscription fetch failure via proxy, retry outside the VPN tunnel. */
+    const val SUBSCRIPTION_UPDATE_DIRECT_FALLBACK = "subscriptionUpdateDirectFallback"
     const val RULES_PROVIDER = "rulesProvider"
     const val LOG_LEVEL = "logLevel"
     const val LOG_BUF_SIZE = "logBufSize"
