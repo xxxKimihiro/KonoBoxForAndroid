@@ -25,24 +25,24 @@ Prefer the `arm64-v8a` APK on modern phones.
 ## 相对上游的主要改动 / Changes from upstream
 
 * 应用更名为 **KonoBox**（`moe.konobox`）
-* **Tailscale** 以 endpoint 形式接入：控制面/数据面经当前选中的订阅节点转发后再进 tailnet
-* **可信 Wi‑Fi 直连**：白名单 SSID 下保持 VPN 连接，但内部全部走 Direct；离开后自动恢复所选代理
-* 订阅更新后尽量按节点名跟随已选节点，并在需要时自动重连
-* 订阅更新结果用 Toast 提示（不再弹 Diff 对话框）
-* 可选「启动时更新订阅」（默认开启）
-* 订阅拉取失败时默认直连重试（绕过 VPN），避免坏节点导致无法更新
-* **自动出站**：全局顺序 fallback / 延迟 urltest（健康检查复用连接测试 URL）；可自建「自动出站组」子集，并作为路由出站
-* Release 构建可自动递增版本号，并与 GitHub Release 标签对齐
+* **Tailscale**：以 endpoint 接入；控制面/数据面先经当前选中的订阅节点，再进入 tailnet
+* **自动出站**：全局「顺序 fallback / 延迟 urltest」（探测复用连接测试 URL）；可自建「自动出站组」子集，支持选中连接或作为路由出站
+* **可信 Wi‑Fi 直连**：白名单 SSID 下保持 VPN，但流量全部走 Direct；离开后自动恢复所选代理
+* **订阅体验**：
+  * 更新后尽量按节点名跟随已选节点，必要时自动重连
+  * 更新结果用 Toast 提示（不再弹 Diff 对话框）
+  * 可选「启动时更新订阅」（默认开启）
+  * 代理路径拉取失败时，默认走底层网络直连重试（绕过 VPN），避免坏节点导致无法更新
 
 * Rebranded as **KonoBox** (`moe.konobox`)
-* **Tailscale** endpoint support: traffic goes through the selected subscription outbound first, then into the tailnet
-* **Trusted Wi‑Fi Direct**: on whitelisted SSIDs, keep VPN up but route all traffic Direct; restore the selected proxy when leaving
-* Prefer following the selected node by name across subscription updates, with reconnect when needed
-* Subscription update results use Toast (no Diff dialog)
-* Optional “Update subscriptions on start” (default on)
-* Subscription fetch retries on the underlying network when the proxy path fails (default on)
-* **Auto outbound**: global ordered fallback / latency urltest (health checks reuse Connection Test URL); custom Auto Outbound Group subsets usable as route outbounds
-* Release workflow can auto-bump versions and keep GitHub Release tags in sync
+* **Tailscale** endpoint: control/data plane goes through the selected subscription node first, then into the tailnet
+* **Auto outbound**: global ordered fallback / latency urltest (probes reuse Connection Test URL); custom Auto Outbound Groups usable as the selected profile or a route outbound
+* **Trusted Wi‑Fi Direct**: on whitelisted SSIDs keep VPN up but route all traffic Direct; restore the selected proxy when leaving
+* **Subscriptions**:
+  * Prefer following the selected node by name across updates, with reconnect when needed
+  * Update results use Toast (no Diff dialog)
+  * Optional “Update subscriptions on start” (default on)
+  * When proxy-path fetch fails, retry on the underlying network by default (bypass VPN) so a dead node cannot block updates
 
 ## 支持的代理协议 / Supported Proxy Protocols
 
