@@ -48,6 +48,9 @@ object Key {
     /** Global auto outbound: 0=off, 1=order fallback, 2=latency (urltest). Applies to the selected group. */
     const val AUTO_OUTBOUND_MODE = "autoOutboundMode"
 
+    /** On connect, if the selected node fails the connection test, refresh subscription and switch. */
+    const val AUTO_SWITCH_ON_FAIL = "autoSwitchOnFail"
+
     const val NETWORK_CHANGE_RESET_CONNECTIONS = "networkChangeResetConnections"
     const val WAKE_RESET_CONNECTIONS = "wakeResetConnections"
 

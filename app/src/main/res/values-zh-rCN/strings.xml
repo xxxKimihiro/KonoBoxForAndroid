@@ -224,6 +224,8 @@
     <string name="auto_outbound_off">关闭</string>
     <string name="auto_outbound_order">顺序（fallback）</string>
     <string name="auto_outbound_latency">延迟（urltest）</string>
+    <string name="auto_switch_on_fail">失效节点自动切换</string>
+    <string name="auto_switch_on_fail_sum">启动连接时若当前节点连接测试失败，自动刷新订阅并切换到同分组中可用的节点。默认开启。</string>
     <string name="chain_settings">链设置</string>
     <string name="circular_reference">循环引用</string>
     <string name="circular_reference_sum">路由中不能包含自己.</string>

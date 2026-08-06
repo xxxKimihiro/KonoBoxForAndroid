@@ -7,7 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.text.format.Formatter
 import android.widget.Toast
@@ -22,11 +25,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ui.SwitchActivity
 import io.nekohasekai.sagernet.utils.Theme
-import kotlin.random.Random
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -49,21 +50,6 @@ class ServiceNotification(
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
-        private val FACE_ICONS = intArrayOf(
-            R.drawable.ic_notif_face_1,
-            R.drawable.ic_notif_face_2,
-            R.drawable.ic_notif_face_3,
-            R.drawable.ic_notif_face_4,
-            R.drawable.ic_notif_face_5,
-            R.drawable.ic_notif_face_6,
-            R.drawable.ic_notif_face_7,
-            R.drawable.ic_notif_face_8,
-            R.drawable.ic_notif_face_9,
-        )
-
-        @Volatile
-        private var lastFaceIndex = -1
-
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
                 SagerDatabase.groupDao.getById(ent.groupId)?.displayName() else null
@@ -72,23 +58,6 @@ class ServiceNotification(
                 "$base · Direct"
             } else {
                 base
-            }
-        }
-
-        private fun nextFaceResId(): Int {
-            var idx = Random.nextInt(FACE_ICONS.size)
-            if (FACE_ICONS.size > 1 && idx == lastFaceIndex) {
-                idx = (idx + 1) % FACE_ICONS.size
-            }
-            lastFaceIndex = idx
-            return FACE_ICONS[idx]
-        }
-
-        /** Shuffle the connected VPN notification large icon (no-op if not running). */
-        fun randomizeConnectedFace() {
-            val notification = DataStore.baseService?.data?.notification ?: return
-            runOnDefaultDispatcher {
-                notification.postRandomFace()
             }
         }
     }
@@ -137,22 +106,34 @@ class ServiceNotification(
     suspend fun postNotificationTitle(newTitle: String) {
         useBuilder {
             it.setContentTitle(newTitle)
-            applyRandomFace(it)
+            applyAppIcon(it)
         }
         update()
     }
 
-    suspend fun postRandomFace() {
-        useBuilder { applyRandomFace(it) }
-        update()
+    private fun applyAppIcon(builder: NotificationCompat.Builder) {
+        // Adaptive icons (mipmap-anydpi-v26) cannot be decoded via BitmapFactory; resolve the
+        // real launcher drawable from PackageManager instead so the large icon matches the app icon.
+        val context = service as Context
+        val drawable = try {
+            context.packageManager.getApplicationIcon(context.packageName)
+        } catch (_: Exception) {
+            null
+        } ?: return
+        builder.setLargeIcon(drawableToBitmap(drawable))
     }
 
-    private fun applyRandomFace(builder: NotificationCompat.Builder) {
-        val bmp = BitmapFactory.decodeResource(
-            (service as Context).resources,
-            nextFaceResId(),
-        ) ?: return
-        builder.setLargeIcon(bmp)
+    private fun drawableToBitmap(drawable: Drawable): Bitmap {
+        if (drawable is BitmapDrawable && drawable.bitmap != null) {
+            return drawable.bitmap
+        }
+        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 256
+        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 256
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 
     suspend fun postNotificationWakeLockStatus(acquired: Boolean) {
@@ -198,7 +179,7 @@ class ServiceNotification(
 
         runOnMainDispatcher {
             updateActions()
-            useBuilder { applyRandomFace(it) }
+            useBuilder { applyAppIcon(it) }
             show()
         }
     }

@@ -138,8 +138,10 @@ fun buildConfig(
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
         }.toHashSet().toList()).associateBy { it.id }
+    // autoSwitchOnFail：把当前分组成员都放进 selector，连接失败时可热切换而不必整表重建
     val buildSelector =
-        !forTest && group?.isSelector == true && !forExport && autoOutboundMode == AutoOutboundMode.OFF
+        !forTest && group != null && !forExport && autoOutboundMode == AutoOutboundMode.OFF &&
+            (group.isSelector || DataStore.autoSwitchOnFail)
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
@@ -810,15 +812,16 @@ fun buildConfig(
         // 同时把 tailnet 网段路由到该 endpoint,使发往 tailnet 的流量经此转发。
         if (!forTest && DataStore.tailscaleEnabled && DataStore.tailscaleAuthKey.isNotBlank()) {
             val tsTag = "tailscale"
+            // 控制面 DNS 始终走直连解析：dns-remote 依赖 TAG_PROXY，选中节点失效
+            // （如 Reality 校验失败）时会拖垮 Tailscale 启动，进而表现为订阅/代理起不来。
+            // TCP 仍经 detour=TAG_PROXY，保持“先经订阅再连 Tailscale”。
+            val tsDetour = if (wifiDirect) TAG_DIRECT else TAG_PROXY
             endpoints = mutableListOf<SingBoxOption>().apply {
                 add(Endpoint_TailscaleOptions().apply {
                     type = "tailscale"
                     tag = tsTag
-                    // Trusted Wi‑Fi 直连模式下不再经订阅节点桥接
-                    detour = if (wifiDirect) TAG_DIRECT else TAG_PROXY
-                    // sing-box 1.12+ 要求 NewDialer 指定 domain_resolver，否则解析
-                    // controlplane.tailscale.com 会直接失败：missing domain resolver...
-                    domain_resolver = if (wifiDirect) "dns-direct" else "dns-remote"
+                    detour = tsDetour
+                    domain_resolver = "dns-direct"
                     auth_key = DataStore.tailscaleAuthKey
                     accept_routes = DataStore.tailscaleAcceptRoutes
                     if (DataStore.tailscaleControlUrl.isNotBlank()) {
@@ -836,6 +839,19 @@ fun buildConfig(
             route.rules.add(0, Rule_DefaultOptions().apply {
                 ip_cidr = listOf("100.64.0.0/10", "fd7a:115c:a1e0::/48")
                 outbound = tsTag
+            })
+            // 解析 Tailscale 控制面域名时强制走直连 DNS，避免与代理节点健康状况耦合
+            val tsDnsDomains = mutableListOf(
+                "controlplane.tailscale.com",
+                "login.tailscale.com",
+                "log.tailscale.com",
+            )
+            DataStore.tailscaleControlUrl.trim().toHttpUrlOrNull()?.host?.let { host ->
+                if (host.isNotBlank() && !host.isIpAddress()) tsDnsDomains.add(host)
+            }
+            dns.rules.add(0, DNSRule_DefaultOptions().apply {
+                domain = tsDnsDomains.distinct()
+                server = "dns-direct"
             })
         }
 

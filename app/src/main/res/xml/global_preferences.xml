@@ -230,6 +230,12 @@
             app:summary="@string/auto_outbound_mode_sum"
             app:title="@string/auto_outbound_mode"
             app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:defaultValue="true"
+            app:icon="@drawable/ic_baseline_flip_camera_android_24"
+            app:key="autoSwitchOnFail"
+            app:summary="@string/auto_switch_on_fail_sum"
+            app:title="@string/auto_switch_on_fail" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/cag_misc">

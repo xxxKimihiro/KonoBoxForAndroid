@@ -3,10 +3,10 @@ package libcore
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"libcore/procfs"
 	"log"
+	"net"
 	"net/netip"
 	"strings"
 	"syscall"
@@ -14,11 +14,13 @@ import (
 	"github.com/matsuridayo/libneko/neko_log"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/process"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	sblog "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	tun "github.com/sagernet/sing-tun"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/common/control"
 	"github.com/sagernet/sing/common/logger"
 	N "github.com/sagernet/sing/common/network"
 )
@@ -89,11 +91,65 @@ func (w *boxPlatformInterfaceWrapper) CreateDefaultInterfaceMonitor(l logger.Log
 }
 
 func (w *boxPlatformInterfaceWrapper) UsePlatformInterfaceGetter() bool {
-	return false
+	return true
 }
 
 func (w *boxPlatformInterfaceWrapper) Interfaces() ([]adapter.NetworkInterface, error) {
-	return nil, errors.New("wtf")
+	// Tailscale Start() → UpdateInterfaces() → platform.Interfaces().
+	// Prefer Android-side enumeration: Go net.Interface.Addrs() uses netlink and
+	// fails with "route ip+net: netlinkrib: permission denied" on untrusted apps.
+	// Without addresses Tailscale reports HaveV4/V6=false, SetNetworkUp(false),
+	// pauses control, and never authenticates.
+	if raw := intfBox.LocalInterfaces(); raw != "" && raw != "[]" {
+		var items []struct {
+			Name         string   `json:"name"`
+			Index        int      `json:"index"`
+			MTU          int      `json:"mtu"`
+			Flags        int      `json:"flags"`
+			HardwareAddr string   `json:"hardware_addr"`
+			Addresses    []string `json:"addresses"`
+		}
+		if err := json.Unmarshal([]byte(raw), &items); err == nil && len(items) > 0 {
+			out := make([]adapter.NetworkInterface, 0, len(items))
+			for _, it := range items {
+				var addrs []netip.Prefix
+				for _, a := range it.Addresses {
+					if p, err := netip.ParsePrefix(a); err == nil {
+						addrs = append(addrs, p)
+					}
+				}
+				var hw net.HardwareAddr
+				if it.HardwareAddr != "" {
+					hw, _ = net.ParseMAC(it.HardwareAddr)
+				}
+				out = append(out, adapter.NetworkInterface{
+					Interface: control.Interface{
+						Index:        it.Index,
+						MTU:          it.MTU,
+						Name:         it.Name,
+						HardwareAddr: hw,
+						Flags:        net.Flags(it.Flags),
+						Addresses:    addrs,
+					},
+					Type: C.InterfaceTypeOther,
+				})
+			}
+			return out, nil
+		}
+	}
+	// Fallback: names/flags only (no addresses) — better than erroring out.
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return []adapter.NetworkInterface{}, nil
+	}
+	out := make([]adapter.NetworkInterface, 0, len(ifaces))
+	for _, iface := range ifaces {
+		out = append(out, adapter.NetworkInterface{
+			Interface: control.InterfaceFromNetAddrs(iface, nil),
+			Type:      C.InterfaceTypeOther,
+		})
+	}
+	return out, nil
 }
 
 func (w *boxPlatformInterfaceWrapper) IncludeAllNetworks() bool {

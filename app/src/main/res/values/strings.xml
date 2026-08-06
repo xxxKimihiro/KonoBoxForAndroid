@@ -242,6 +242,8 @@
     <string name="auto_outbound_off">Off</string>
     <string name="auto_outbound_order">Order (fallback)</string>
     <string name="auto_outbound_latency">Latency (urltest)</string>
+    <string name="auto_switch_on_fail">Auto switch on failure</string>
+    <string name="auto_switch_on_fail_sum">When the selected node fails the connection test at start, refresh the subscription and switch to a working node in the same group. On by default.</string>
     <string name="custom_config">Custom Config</string>
     <string name="balancer">Balancer</string>
     <string name="balancer_settings">Balancer Settings</string>

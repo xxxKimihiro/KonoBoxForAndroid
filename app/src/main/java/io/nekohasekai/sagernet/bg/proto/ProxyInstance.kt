@@ -20,6 +20,7 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     // for TrafficLooper
     var looper: TrafficLooper? = null
     private var autoOutboundWatcher: AutoOutboundWatcher? = null
+    private var connectFailover: ConnectFailover? = null
 
     override fun buildConfig() {
         super.buildConfig()
@@ -58,10 +59,16 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
                 autoOutboundWatcher = AutoOutboundWatcher(this, config.orderFallbackGroups)
                 autoOutboundWatcher?.start(svc)
             }
+            if (svc != null && notTmp) {
+                connectFailover = ConnectFailover(this)
+                connectFailover?.start(svc)
+            }
         }
     }
 
     override fun close() {
+        connectFailover?.stop()
+        connectFailover = null
         autoOutboundWatcher?.stop()
         autoOutboundWatcher = null
         super.close()
