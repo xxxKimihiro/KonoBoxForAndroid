@@ -47,6 +47,9 @@ object Key {
 
     const val NETWORK_CHANGE_RESET_CONNECTIONS = "networkChangeResetConnections"
     const val WAKE_RESET_CONNECTIONS = "wakeResetConnections"
+
+    /** Check all subscriptions when the app starts (MainActivity). */
+    const val UPDATE_SUBSCRIPTIONS_ON_START = "updateSubscriptionsOnStart"
     const val RULES_PROVIDER = "rulesProvider"
     const val LOG_LEVEL = "logLevel"
     const val LOG_BUF_SIZE = "logBufSize"

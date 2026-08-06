@@ -14,11 +14,32 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import java.util.concurrent.TimeUnit
 
 object SubscriptionUpdater {
 
     private const val WORK_NAME = "SubscriptionUpdater"
+
+    /**
+     * App 冷启动时检查订阅（受全局开关控制）。不看 autoUpdate 周期，但会尊重
+     *「仅在连接时更新」；更新后仍走 RawUpdater 的按名称/顺序跟随逻辑。
+     */
+    fun checkOnAppStart() {
+        if (!DataStore.updateSubscriptionsOnStart) return
+        runOnDefaultDispatcher {
+            var subscriptions = SagerDatabase.groupDao.subscriptions()
+            if (subscriptions.isEmpty()) return@runOnDefaultDispatcher
+            if (!DataStore.serviceState.connected) {
+                subscriptions =
+                    subscriptions.filter { !it.subscription!!.updateWhenConnectedOnly }
+            }
+            for (profile in subscriptions) {
+                Logs.d("startup: updating " + profile.displayName())
+                GroupUpdater.executeUpdate(profile, false)
+            }
+        }
+    }
 
     suspend fun reconfigureUpdater() {
         RemoteWorkManager.getInstance(app).cancelUniqueWork(WORK_NAME)

@@ -27,11 +27,15 @@ Prefer the `arm64-v8a` APK on modern phones.
 * 应用更名为 **KonoBox**（`moe.konobox`）
 * **Tailscale** 以 endpoint 形式接入：控制面/数据面经当前选中的订阅节点转发后再进 tailnet
 * 订阅更新后尽量按节点名跟随已选节点，并在需要时自动重连
+* 订阅更新结果用 Toast 提示（不再弹 Diff 对话框）
+* 可选「启动时更新订阅」（默认开启）
 * Release 构建可自动递增版本号，并与 GitHub Release 标签对齐
 
 * Rebranded as **KonoBox** (`moe.konobox`)
 * **Tailscale** endpoint support: traffic goes through the selected subscription outbound first, then into the tailnet
 * Prefer following the selected node by name across subscription updates, with reconnect when needed
+* Subscription update results use Toast (no Diff dialog)
+* Optional “Update subscriptions on start” (default on)
 * Release workflow can auto-bump versions and keep GitHub Release tags in sync
 
 ## 支持的代理协议 / Supported Proxy Protocols
