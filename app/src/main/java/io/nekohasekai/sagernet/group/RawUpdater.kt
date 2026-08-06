@@ -3,7 +3,6 @@ package io.nekohasekai.sagernet.group
 import android.annotation.SuppressLint
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
