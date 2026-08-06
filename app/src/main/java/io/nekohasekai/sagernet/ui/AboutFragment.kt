@@ -83,7 +83,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .subText(SagerNet.appVersionNameForDisplay)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
-                                        "https://github.com/MatsuriDayo/NekoBoxForAndroid/releases"
+                                        "https://github.com/xxxKimihiro/KonoBoxForAndroid/releases"
                                     )
                                 }
                                 .build())
@@ -91,14 +91,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                             MaterialAboutActionItem.Builder()
                                 .text(R.string.check_update_release)
                                 .setOnClickAction {
-                                    checkUpdate(false)
-                                }
-                                .build())
-                        .addItem(
-                            MaterialAboutActionItem.Builder()
-                                .text(R.string.check_update_preview)
-                                .setOnClickAction {
-                                    checkUpdate(true)
+                                    checkUpdate()
                                 }
                                 .build())
                         .addItem(
@@ -107,17 +100,6 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .text(getString(R.string.version_x, "sing-box"))
                                 .subText(Libcore.versionBox())
                                 .setOnClickAction { }
-                                .build())
-                        .addItem(
-                            MaterialAboutActionItem.Builder()
-                                .icon(R.drawable.ic_baseline_card_giftcard_24)
-                                .text(R.string.donate)
-                                .subText(R.string.donate_info)
-                                .setOnClickAction {
-                                    requireContext().launchCustomTab(
-                                        "https://matsuridayo.github.io/index_docs/#donate"
-                                    )
-                                }
                                 .build())
                         .apply {
                             PackageCache.awaitLoadSync()
@@ -183,18 +165,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .text(R.string.github)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
-                                        "https://github.com/MatsuriDayo/NekoBoxForAndroid"
-
-                                    )
-                                }
-                                .build())
-                        .addItem(
-                            MaterialAboutActionItem.Builder()
-                                .icon(R.drawable.ic_qu_shadowsocks_foreground)
-                                .text(R.string.telegram)
-                                .setOnClickAction {
-                                    requireContext().launchCustomTab(
-                                        "https://t.me/MatsuriDayo"
+                                        "https://github.com/xxxKimihiro/KonoBoxForAndroid"
                                     )
                                 }
                                 .build())
@@ -211,7 +182,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
             }
         }
 
-        fun checkUpdate(checkPreview: Boolean) {
+        fun checkUpdate() {
             runOnIoDispatcher {
                 try {
                     val client = Libcore.newHttpClient().apply {
@@ -219,30 +190,13 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         trySocks5(DataStore.mixedPort)
                     }
                     val response = client.newRequest().apply {
-                        if (checkPreview) {
-                            setURL("https://api.github.com/repos/MatsuriDayo/NekoBoxForAndroid/releases/tags/preview")
-                        } else {
-                            setURL("https://api.github.com/repos/MatsuriDayo/NekoBoxForAndroid/releases/latest")
-                        }
+                        setURL("https://api.github.com/repos/xxxKimihiro/KonoBoxForAndroid/releases/latest")
                     }.execute()
                     val release = JSONObject(Util.getStringBox(response.contentString))
                     val releaseName = release.getString("name")
                     val releaseUrl = release.getString("html_url")
-                    var haveUpdate = releaseName.isNotBlank()
-                    haveUpdate = if (isPreview) {
-                        if (checkPreview) {
-                            haveUpdate && releaseName != BuildConfig.PRE_VERSION_NAME
-                        } else {
-                            // User: 1.3.9 pre-1.4.0 Stable: 1.3.9 -> No update
-                            haveUpdate && releaseName != BuildConfig.VERSION_NAME
-                        }
-                    } else {
-                        // User: 1.4.0 Preview: pre-1.4.0 -> No update
-                        // User: 1.4.0 Preview: pre-1.4.1 -> Update
-                        // User: 1.4.0 Stable: 1.4.0 -> No update
-                        // User: 1.4.0 Stable: 1.4.1 -> Update
-                        haveUpdate && !releaseName.contains(BuildConfig.VERSION_NAME)
-                    }
+                    val haveUpdate = releaseName.isNotBlank() &&
+                            !releaseName.contains(BuildConfig.VERSION_NAME)
                     runOnMainDispatcher {
                         if (haveUpdate) {
                             val context = requireContext()

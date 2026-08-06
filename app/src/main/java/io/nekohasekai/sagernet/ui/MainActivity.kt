@@ -42,7 +42,6 @@ import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.alert
-import io.nekohasekai.sagernet.ktx.isPlay
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -131,7 +130,6 @@ class MainActivity : ThemedActivity(),
     fun refreshNavMenu(clashApi: Boolean) {
         if (::navigation.isInitialized) {
             navigation.menu.findItem(R.id.nav_traffic)?.isVisible = clashApi
-            navigation.menu.findItem(R.id.nav_tuiguang)?.isVisible = !isPlay
         }
     }
 
@@ -272,7 +270,7 @@ class MainActivity : ThemedActivity(),
             }
             .setNeutralButton(android.R.string.cancel, null)
             .setNeutralButton(R.string.action_learn_more) { _, _ ->
-                launchCustomTab("https://matsuridayo.github.io/nb4a-plugin/")
+                launchCustomTab("https://github.com/xxxKimihiro/KonoBoxForAndroid")
             }
             .show()
     }
@@ -343,15 +341,11 @@ class MainActivity : ThemedActivity(),
             R.id.nav_tools -> displayFragment(ToolsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())
             R.id.nav_faq -> {
-                launchCustomTab("https://matsuridayo.github.io/")
+                launchCustomTab("https://github.com/xxxKimihiro/KonoBoxForAndroid")
                 return false
             }
 
             R.id.nav_about -> displayFragment(AboutFragment())
-            R.id.nav_tuiguang -> {
-                launchCustomTab("https://neko-box.pages.dev/喵")
-                return false
-            }
 
             else -> return false
         }
