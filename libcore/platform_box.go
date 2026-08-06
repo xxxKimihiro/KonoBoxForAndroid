@@ -3,10 +3,10 @@ package libcore
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"libcore/procfs"
 	"log"
+	"net"
 	"net/netip"
 	"strings"
 	"syscall"
@@ -14,11 +14,13 @@ import (
 	"github.com/matsuridayo/libneko/neko_log"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/process"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	sblog "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	tun "github.com/sagernet/sing-tun"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/common/control"
 	"github.com/sagernet/sing/common/logger"
 	N "github.com/sagernet/sing/common/network"
 )
@@ -93,7 +95,26 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformInterfaceGetter() bool {
 }
 
 func (w *boxPlatformInterfaceWrapper) Interfaces() ([]adapter.NetworkInterface, error) {
-	return nil, errors.New("wtf")
+	// Tailscale endpoint Start() calls NetworkManager.UpdateInterfaces(), which always
+	// goes through platform.Interfaces() when a platform interface is registered.
+	// The previous stub returned errors.New("wtf") and made Tailscale fail to start
+	// (taking the whole proxy service down with it). Enumerate real interfaces via net.
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]adapter.NetworkInterface, 0, len(ifaces))
+	for _, iface := range ifaces {
+		ctrlIface, err := control.InterfaceFromNet(iface)
+		if err != nil {
+			continue
+		}
+		out = append(out, adapter.NetworkInterface{
+			Interface: ctrlIface,
+			Type:      C.InterfaceTypeOther,
+		})
+	}
+	return out, nil
 }
 
 func (w *boxPlatformInterfaceWrapper) IncludeAllNetworks() bool {
