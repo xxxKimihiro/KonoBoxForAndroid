@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -74,7 +75,7 @@ class ConnectFailover(
                 Logs.w("auto-switch: subscription refresh failed: ${e.message}")
             }
             delay(1_000L)
-            if (!isActive || DataStore.wifiDirectActive) return
+            if (!currentCoroutineContext().isActive || DataStore.wifiDirectActive) return
             val boxAfterRefresh = service.data.proxy?.box
             if (boxAfterRefresh != null) {
                 try {
@@ -126,7 +127,7 @@ class ConnectFailover(
 
         // Slow path: no multi-outbound config — test candidates out-of-process, then reload.
         for (ent in members) {
-            if (!isActive) return
+            if (!currentCoroutineContext().isActive) return
             if (ent.id == profile.id) continue
             try {
                 UrlTest().doTest(ent)
@@ -148,7 +149,7 @@ class ConnectFailover(
     ): Pair<ProxyEntity, String>? {
         val concurrency = DataStore.connectionTestConcurrent.coerceIn(1, 8)
         for (batch in candidates.chunked(concurrency)) {
-            if (!scope.isActive) return null
+            if (!currentCoroutineContext().isActive) return null
             val winner = coroutineScope {
                 batch.map { (ent, tag) ->
                     async(Dispatchers.IO) {
