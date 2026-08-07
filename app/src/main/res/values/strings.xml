@@ -614,7 +614,7 @@
 
     <string name="wifi_direct">Trusted Wi‑Fi</string>
     <string name="wifi_direct_enable">Direct on trusted Wi‑Fi</string>
-    <string name="wifi_direct_enable_sum">Keep VPN connected, but route all traffic Direct when on a whitelisted Wi‑Fi. Leave those networks to restore the selected proxy.</string>
+    <string name="wifi_direct_enable_sum">Keep VPN connected, but route all traffic Direct when on a whitelisted Wi‑Fi. Leave those networks to restore the selected proxy. Switches without restarting the VPN; FakeDNS is disabled while this is on.</string>
     <string name="wifi_direct_ssids">Trusted SSIDs</string>
     <string name="wifi_direct_ssids_sum">One SSID per line (or comma-separated). Exact match. Reading SSID may require location / nearby Wi‑Fi permission.</string>
     <string name="wifi_direct_need_permission">Permission needed to read Wi‑Fi SSID. Please grant location or nearby Wi‑Fi access.</string>

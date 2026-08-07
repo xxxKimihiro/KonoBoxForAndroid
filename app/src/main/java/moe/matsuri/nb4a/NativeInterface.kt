@@ -150,9 +150,19 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         Libcore.resetAllConnections(true)
         DataStore.baseService?.apply {
             runOnDefaultDispatcher {
+                // Trusted Wi‑Fi hot-switch: mode tags are not real profiles.
+                if (tag == "bypass" || tag == "proxy-main") {
+                    DataStore.wifiDirectActive = tag == "bypass"
+                    data.proxy?.apply {
+                        displayProfileName = ServiceNotification.genTitle(profile)
+                        data.notification?.postNotificationTitle(displayProfileName)
+                    }
+                    return@runOnDefaultDispatcher
+                }
                 val id = data.proxy!!.config.profileTagMap
                     .filterValues { it == tag }.keys.firstOrNull() ?: -1
                 val ent = SagerDatabase.proxyDao.getById(id) ?: return@runOnDefaultDispatcher
+                DataStore.wifiDirectActive = false
                 // traffic & title
                 data.proxy?.apply {
                     looper?.selectMain(id)
