@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
@@ -46,6 +47,7 @@ class BaseService {
         var state = State.Stopped
         var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
+        var wifiDirectRetryJob: Job? = null
 
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
@@ -228,6 +230,8 @@ class BaseService {
         }
 
         fun killProcesses() {
+            data.wifiDirectRetryJob?.cancel()
+            data.wifiDirectRetryJob = null
             data.proxy?.close()
             wakeLock?.apply {
                 release()
@@ -304,11 +308,70 @@ class BaseService {
 
         fun maybeApplyWifiDirectMode() {
             if (data.state != State.Connected && data.state != State.Connecting) return
-            val wantDirect = WifiDirectHelper.shouldUseDirect()
-            if (wantDirect == DataStore.wifiDirectActive) return
-            Logs.d(
-                "WiFi direct mode -> $wantDirect (ssid=${WifiDirectHelper.currentSsid()})"
-            )
+            when (val decision = WifiDirectHelper.evaluate()) {
+                WifiDirectHelper.DirectDecision.UNKNOWN -> {
+                    // SSID not readable yet — keep current mode; one light retry only.
+                    scheduleWifiDirectRetry()
+                    return
+                }
+
+                WifiDirectHelper.DirectDecision.DIRECT,
+                WifiDirectHelper.DirectDecision.PROXY,
+                -> {
+                    data.wifiDirectRetryJob?.cancel()
+                    data.wifiDirectRetryJob = null
+                    val wantDirect = decision == WifiDirectHelper.DirectDecision.DIRECT
+                    if (wantDirect == DataStore.wifiDirectActive) return
+                    Logs.d(
+                        "WiFi direct mode -> $wantDirect (ssid=${WifiDirectHelper.currentSsid()})"
+                    )
+                    applyWifiDirectMode(wantDirect)
+                }
+            }
+        }
+
+        private fun scheduleWifiDirectRetry() {
+            if (data.wifiDirectRetryJob?.isActive == true) return
+            data.wifiDirectRetryJob = runOnMainDispatcher {
+                delay(500L)
+                if (data.state == State.Connected || data.state == State.Connecting) {
+                    maybeApplyWifiDirectMode()
+                }
+            }
+        }
+
+        /**
+         * Prefer selector hot-switch (proxy ↔ bypass). Fall back to full restart when
+         * the running config was not built with Trusted Wi‑Fi hot-switch support.
+         */
+        private fun applyWifiDirectMode(wantDirect: Boolean) {
+            val proxy = data.proxy
+            val box = proxy?.box
+            val config = proxy?.config
+            if (box != null && config != null && config.wifiDirectHotSwitch) {
+                val targetTag = if (wantDirect) {
+                    TAG_BYPASS
+                } else {
+                    config.wifiDirectProxyTag.ifBlank {
+                        val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
+                        config.profileTagMap[ent?.id].orEmpty()
+                    }
+                }
+                if (targetTag.isNotBlank() && box.selectOutbound(targetTag)) {
+                    DataStore.wifiDirectActive = wantDirect
+                    // selector_OnProxySelected also resets connections; keep a local reset so
+                    // Direct/proxy flips stay consistent even if the callback is skipped.
+                    Libcore.resetAllConnections(true)
+                    val title = ServiceNotification.genTitle(proxy.profile)
+                    proxy.displayProfileName = title
+                    runOnMainDispatcher {
+                        data.notification?.postNotificationTitle(title)
+                    }
+                    Logs.d("WiFi direct hot-switch -> $wantDirect via $targetTag")
+                    return
+                }
+                Logs.w("WiFi direct hot-switch failed (tag=$targetTag), falling back to reload")
+            }
             DataStore.wifiDirectActive = wantDirect
             stopRunner(true)
         }

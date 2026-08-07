@@ -524,7 +524,7 @@
 
     <string name="wifi_direct">可信 Wi‑Fi</string>
     <string name="wifi_direct_enable">可信 Wi‑Fi 下直连</string>
-    <string name="wifi_direct_enable_sum">保持 VPN 连接，但在白名单 Wi‑Fi 下将全部流量改为直连；离开这些网络后自动恢复所选代理节点。</string>
+    <string name="wifi_direct_enable_sum">保持 VPN 连接，但在白名单 Wi‑Fi 下将全部流量改为直连；离开这些网络后自动恢复所选代理节点。切换时不重启 VPN；开启此项时会禁用 FakeDNS。</string>
     <string name="wifi_direct_ssids">可信 SSID</string>
     <string name="wifi_direct_ssids_sum">每行一个 SSID（也可用逗号分隔），精确匹配。读取 SSID 可能需要定位或附近的设备权限。</string>
     <string name="wifi_direct_need_permission">需要权限才能读取 Wi‑Fi SSID，请授予定位或附近的 Wi‑Fi 权限。</string>

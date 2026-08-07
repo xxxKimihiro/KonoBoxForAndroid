@@ -45,6 +45,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 const val TAG_MIXED = "mixed-in"
 
 const val TAG_PROXY = "proxy"
+const val TAG_PROXY_MAIN = "proxy-main"
 const val TAG_DIRECT = "direct"
 const val TAG_BYPASS = "bypass"
 const val TAG_BLOCK = "block"
@@ -60,6 +61,13 @@ class ConfigBuildResult(
     val selectorGroupId: Long,
     /** Ordered-fallback selector groups that need app-side health checks. */
     val orderFallbackGroups: List<OrderFallbackGroup> = emptyList(),
+    /**
+     * Trusted Wi‑Fi can hot-switch via selector (proxy ↔ bypass) without rebuilding
+     * the core. When true, [wifiDirectProxyTag] is the outbound to select when leaving
+     * Direct (empty = use the currently selected profile tag from [profileTagMap]).
+     */
+    val wifiDirectHotSwitch: Boolean = false,
+    val wifiDirectProxyTag: String = "",
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
     data class OrderFallbackGroup(val groupTag: String, val memberTags: List<String>)
@@ -152,13 +160,18 @@ fun buildConfig(
     val directDNS = DataStore.directDns.split("\n")
         .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
     val enableDnsRouting = DataStore.enableDnsRouting
+    // Feature enabled → build hot-switch-friendly config (selector can pick bypass).
+    val wifiDirectFeature = !forTest && !forExport && DataStore.wifiDirectEnabled
     val wifiDirect = !forTest && WifiDirectHelper.shouldUseDirect()
     if (!forTest) DataStore.wifiDirectActive = wifiDirect
-    val useFakeDns = DataStore.enableFakeDns && !forTest && !wifiDirect
+    // FakeDNS + Direct is unsafe; keep it off whenever Trusted Wi‑Fi hot-switch is built in.
+    val useFakeDns = DataStore.enableFakeDns && !forTest && !wifiDirectFeature && !wifiDirect
     val needSniff = DataStore.trafficSniffing > 0
     val needSniffOverride = DataStore.trafficSniffing == 2
     val externalIndexMap = ArrayList<IndexEntity>()
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
+    var wifiDirectHotSwitch = false
+    var wifiDirectProxyTag = ""
 
     fun genDomainStrategy(noAsIs: Boolean): String {
         return when {
@@ -259,8 +272,10 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
-            // Trusted Wi‑Fi: keep VPN up, but default all traffic to Direct/bypass.
-            if (wifiDirect) {
+            // Legacy path (feature on but hot-switch not applied yet): final → bypass.
+            // When wifiDirectFeature is on we instead put bypass into the proxy selector
+            // and hot-switch; route.final_ stays on TAG_PROXY.
+            if (wifiDirect && !wifiDirectFeature) {
                 final_ = TAG_BYPASS
             }
         }
@@ -735,6 +750,44 @@ fun buildConfig(
             type = "direct"
         })
 
+        // Trusted Wi‑Fi hot-switch: ensure TAG_PROXY selector can select TAG_BYPASS.
+        if (wifiDirectFeature) {
+            val proxyOb = outbounds.firstOrNull { ob ->
+                (ob as? Outbound)?.tag == TAG_PROXY
+            }
+            when (proxyOb) {
+                is Outbound_SelectorOptions -> {
+                    val members = proxyOb.outbounds?.toMutableList() ?: mutableListOf()
+                    if (TAG_BYPASS !in members) members.add(TAG_BYPASS)
+                    proxyOb.outbounds = members
+                    if (wifiDirect) proxyOb.default_ = TAG_BYPASS
+                    proxyOb._hack_config_map["interrupt_exist_connections"] = true
+                    wifiDirectHotSwitch = true
+                    wifiDirectProxyTag = "" // resolve via selected profile tag at runtime
+                }
+
+                is Outbound -> {
+                    // Wrap urltest / single outbound as proxy-main under a mode selector.
+                    proxyOb.tag = TAG_PROXY_MAIN
+                    if (trafficMap.containsKey(TAG_PROXY)) {
+                        trafficMap[TAG_PROXY_MAIN] = trafficMap.remove(TAG_PROXY)!!
+                    }
+                    outbounds.add(
+                        0,
+                        Outbound_SelectorOptions().apply {
+                            type = "selector"
+                            tag = TAG_PROXY
+                            outbounds = listOf(TAG_PROXY_MAIN, TAG_BYPASS)
+                            default_ = if (wifiDirect) TAG_BYPASS else TAG_PROXY_MAIN
+                            _hack_config_map["interrupt_exist_connections"] = true
+                        },
+                    )
+                    wifiDirectHotSwitch = true
+                    wifiDirectProxyTag = TAG_PROXY_MAIN
+                }
+            }
+        }
+
         // Bypass Lookup for the first profile
         bypassDNSBeans.forEach {
             var serverAddr = it.serverAddress
@@ -795,8 +848,12 @@ fun buildConfig(
             })
         }
 
+        // With Trusted Wi‑Fi hot-switch, DNS follows the selected default outbound
+        // (proxy or bypass) via dns-remote — no rebuild needed on Wi‑Fi change.
         dns.final_ = when {
-            forTest || wifiDirect -> "dns-direct"
+            forTest -> "dns-direct"
+            wifiDirectFeature -> "dns-remote"
+            wifiDirect -> "dns-direct"
             else -> "dns-remote"
         }
 
@@ -814,8 +871,9 @@ fun buildConfig(
             val tsTag = "tailscale"
             // 控制面 DNS 始终走直连解析：dns-remote 依赖 TAG_PROXY，选中节点失效
             // （如 Reality 校验失败）时会拖垮 Tailscale 启动，进而表现为订阅/代理起不来。
-            // TCP 仍经 detour=TAG_PROXY，保持“先经订阅再连 Tailscale”。
-            val tsDetour = if (wifiDirect) TAG_DIRECT else TAG_PROXY
+            // TCP 经 detour=TAG_PROXY：热切时 selector 选到 bypass 即等价直连。
+            val tsDetour =
+                if (wifiDirect && !wifiDirectFeature) TAG_DIRECT else TAG_PROXY
             endpoints = mutableListOf<SingBoxOption>().apply {
                 add(Endpoint_TailscaleOptions().apply {
                     type = "tailscale"
@@ -923,6 +981,8 @@ fun buildConfig(
             tagMap,
             resultSelectorGroupId,
             orderFallbackGroups.toList(),
+            wifiDirectHotSwitch,
+            wifiDirectProxyTag,
         )
     }
 
