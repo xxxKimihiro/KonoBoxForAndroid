@@ -53,19 +53,49 @@ object WifiDirectHelper {
 
     /**
      * Decide Direct vs proxy. UNKNOWN means "keep the current mode" — used when
-     * the network callback fires before WifiInfo is populated.
+     * we appear to be on Wi‑Fi but WifiInfo is not populated yet (callback race).
+     * Leaving Wi‑Fi entirely returns PROXY (not UNKNOWN).
      */
     fun evaluate(network: Network? = SagerNet.underlyingNetwork): DirectDecision {
         if (!DataStore.wifiDirectEnabled) return DirectDecision.PROXY
         val list = whitelist()
         if (list.isEmpty()) return DirectDecision.PROXY
-        val ssid = currentSsid(network) ?: return DirectDecision.UNKNOWN
-        return if (list.any { it == ssid }) DirectDecision.DIRECT else DirectDecision.PROXY
+        val ssid = currentSsid(network)
+        if (ssid != null) {
+            return if (list.any { it == ssid }) DirectDecision.DIRECT else DirectDecision.PROXY
+        }
+        // No readable SSID: off Wi‑Fi → proxy; still associated → wait for WifiInfo.
+        return if (isAssociatedWifi(network)) DirectDecision.UNKNOWN else DirectDecision.PROXY
     }
 
     /** True only when SSID is positively matched. UNKNOWN → false. */
     fun shouldUseDirect(network: Network? = SagerNet.underlyingNetwork): Boolean {
         return evaluate(network) == DirectDecision.DIRECT
+    }
+
+    private fun isAssociatedWifi(network: Network?): Boolean {
+        if (hasWifiTransport(network)) return true
+        return try {
+            val wifiManager =
+                SagerNet.application.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            val info = wifiManager.connectionInfo
+            info != null && info.networkId != -1
+        } catch (e: Exception) {
+            Logs.w(e)
+            false
+        }
+    }
+
+    private fun hasWifiTransport(network: Network?): Boolean {
+        if (network == null) return false
+        return try {
+            val caps = SagerNet.connectivity.getNetworkCapabilities(network) ?: return false
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        } catch (e: Exception) {
+            Logs.w(e)
+            false
+        }
     }
 
     private fun ssidFromTransportInfo(network: Network?): String? {
