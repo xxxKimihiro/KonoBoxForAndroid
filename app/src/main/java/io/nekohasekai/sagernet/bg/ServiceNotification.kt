@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -16,6 +17,7 @@ import android.text.format.Formatter
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -112,14 +114,17 @@ class ServiceNotification(
     }
 
     private fun applyAppIcon(builder: NotificationCompat.Builder) {
-        // Adaptive icons (mipmap-anydpi-v26) cannot be decoded via BitmapFactory; resolve the
-        // real launcher drawable from PackageManager instead so the large icon matches the app icon.
+        // Prefer a dedicated bitmap resource. PackageManager.getApplicationIcon() can keep an
+        // OEM-cached old icon after launcher icon updates (seen as the previous "box" art).
         val context = service as Context
-        val drawable = try {
-            context.packageManager.getApplicationIcon(context.packageName)
-        } catch (_: Exception) {
-            null
-        } ?: return
+        val bmp = BitmapFactory.decodeResource(context.resources, R.drawable.ic_notification)
+        if (bmp != null) {
+            builder.setLargeIcon(bmp)
+            return
+        }
+        val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher_konobox)
+            ?: ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+            ?: return
         builder.setLargeIcon(drawableToBitmap(drawable))
     }
 
