@@ -20,6 +20,8 @@
     <string name="quick_enable">Enable</string>
     <string name="quick_disable">Disable</string>
     <string name="tile_title">Switcher</string>
+    <string name="face_toggle_widget_label">Face Toggle</string>
+    <string name="face_toggle_widget_description">Tap to start or restart the proxy. The face changes on tap and every hour.</string>
     <string name="menu_traffic">Traffic</string>
     <string name="menu_dashboard">sing-box Dashboard</string>
     <!-- externel -->
