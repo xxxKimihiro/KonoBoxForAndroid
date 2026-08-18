@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.appwidget
 
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -11,6 +12,10 @@ import android.os.Build
 import android.os.SystemClock
 import android.widget.RemoteViews
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.bg.ProxyService
+import io.nekohasekai.sagernet.bg.VpnService
+import io.nekohasekai.sagernet.database.DataStore
 
 class FaceToggleWidgetProvider : AppWidgetProvider() {
 
@@ -37,6 +42,7 @@ class FaceToggleWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
+            ACTION_CLICK -> handleClick(context)
             ACTION_HOURLY,
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_LOCKED_BOOT_COMPLETED,
@@ -56,6 +62,7 @@ class FaceToggleWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_HOURLY = "io.nekohasekai.sagernet.appwidget.ACTION_HOURLY"
+        const val ACTION_CLICK = "io.nekohasekai.sagernet.appwidget.ACTION_CLICK"
 
         private fun pendingFlags(): Int {
             return PendingIntent.FLAG_UPDATE_CURRENT or
@@ -65,11 +72,10 @@ class FaceToggleWidgetProvider : AppWidgetProvider() {
         fun buildViews(context: Context): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.face_toggle_widget)
             views.setImageViewResource(R.id.face_image, FaceToggleWidgetStore.currentResId(context))
-            val click = PendingIntent.getActivity(
+            val click = PendingIntent.getBroadcast(
                 context,
                 0,
-                Intent(context, FaceToggleWidgetActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                Intent(context, FaceToggleWidgetProvider::class.java).setAction(ACTION_CLICK),
                 pendingFlags(),
             )
             views.setOnClickPendingIntent(R.id.face_root, click)
@@ -86,9 +92,46 @@ class FaceToggleWidgetProvider : AppWidgetProvider() {
             }
         }
 
+        /** Face-only refresh so the launcher does not rebuild the whole widget. */
+        fun updateFace(context: Context) {
+            val mgr = AppWidgetManager.getInstance(context)
+            val ids = widgetIds(context)
+            if (ids.isEmpty()) return
+            val views = RemoteViews(context.packageName, R.layout.face_toggle_widget)
+            views.setImageViewResource(R.id.face_image, FaceToggleWidgetStore.currentResId(context))
+            mgr.partiallyUpdateAppWidget(ids, views)
+        }
+
         fun widgetIds(context: Context): IntArray {
             return AppWidgetManager.getInstance(context)
                 .getAppWidgetIds(ComponentName(context, FaceToggleWidgetProvider::class.java))
+        }
+
+        fun handleClick(context: Context) {
+            FaceToggleWidgetStore.advanceOnClick(context)
+            updateFace(context)
+            if (isProxyRunning(context)) {
+                SagerNet.forceReloadService()
+            } else {
+                SagerNet.startService()
+            }
+        }
+
+        /**
+         * Widget runs in the UI process; [DataStore.serviceState] is not shared with `:bg`.
+         * Own-UID [ActivityManager.getRunningServices] is still accurate for our services.
+         */
+        @Suppress("DEPRECATION")
+        private fun isProxyRunning(context: Context): Boolean {
+            val state = DataStore.serviceState
+            if (state.canStop || state.started) return true
+            val names = setOf(VpnService::class.java.name, ProxyService::class.java.name)
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            return try {
+                am.getRunningServices(Integer.MAX_VALUE).any { it.service.className in names }
+            } catch (_: Exception) {
+                false
+            }
         }
 
         fun scheduleHourly(context: Context) {

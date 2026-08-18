@@ -47,13 +47,15 @@ class BaseService {
         var state = State.Stopped
         var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
-        var wifiDirectRetryJob: Job? = null
+        var wifiDirectApplyJob: Job? = null
 
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
                 Action.RELOAD -> service.reload()
                 Action.FORCE_RELOAD -> service.forceReload()
+                android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION ->
+                    service.maybeApplyWifiDirectMode()
                 // Action.SWITCH_WAKE_LOCK -> runOnDefaultDispatcher { service.switchWakeLock() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -230,8 +232,9 @@ class BaseService {
         }
 
         fun killProcesses() {
-            data.wifiDirectRetryJob?.cancel()
-            data.wifiDirectRetryJob = null
+            data.wifiDirectApplyJob?.cancel()
+            data.wifiDirectApplyJob = null
+            WifiDirectHelper.stopWatch()
             data.proxy?.close()
             wakeLock?.apply {
                 release()
@@ -304,38 +307,39 @@ class BaseService {
                 }
                 maybeApplyWifiDirectMode()
             }
-        }
-
-        fun maybeApplyWifiDirectMode() {
-            if (data.state != State.Connected && data.state != State.Connecting) return
-            when (val decision = WifiDirectHelper.evaluate()) {
-                WifiDirectHelper.DirectDecision.UNKNOWN -> {
-                    // SSID not readable yet — keep current mode; one light retry only.
-                    scheduleWifiDirectRetry()
-                    return
-                }
-
-                WifiDirectHelper.DirectDecision.DIRECT,
-                WifiDirectHelper.DirectDecision.PROXY,
-                -> {
-                    data.wifiDirectRetryJob?.cancel()
-                    data.wifiDirectRetryJob = null
-                    val wantDirect = decision == WifiDirectHelper.DirectDecision.DIRECT
-                    if (wantDirect == DataStore.wifiDirectActive) return
-                    Logs.d(
-                        "WiFi direct mode -> $wantDirect (ssid=${WifiDirectHelper.currentSsid()})"
-                    )
-                    applyWifiDirectMode(wantDirect)
-                }
+            if (DataStore.wifiDirectEnabled) {
+                WifiDirectHelper.startWatch { maybeApplyWifiDirectMode() }
             }
         }
 
-        private fun scheduleWifiDirectRetry() {
-            if (data.wifiDirectRetryJob?.isActive == true) return
-            data.wifiDirectRetryJob = runOnMainDispatcher {
-                delay(500L)
-                if (data.state == State.Connected || data.state == State.Connecting) {
-                    maybeApplyWifiDirectMode()
+        fun maybeApplyWifiDirectMode() {
+            if (!DataStore.wifiDirectEnabled) return
+            if (data.state != State.Connected && data.state != State.Connecting) return
+            data.wifiDirectApplyJob?.cancel()
+            data.wifiDirectApplyJob = runOnMainDispatcher {
+                delay(150L)
+                val delays = longArrayOf(0L, 400L, 1000L, 2000L, 4000L)
+                for (wait in delays) {
+                    if (wait > 0L) delay(wait)
+                    if (data.state != State.Connected && data.state != State.Connecting) return@runOnMainDispatcher
+                    when (val decision = WifiDirectHelper.evaluate()) {
+                        WifiDirectHelper.DirectDecision.UNKNOWN -> {
+                            Logs.d("WiFi direct SSID not ready, retrying")
+                        }
+
+                        WifiDirectHelper.DirectDecision.DIRECT,
+                        WifiDirectHelper.DirectDecision.PROXY,
+                        -> {
+                            val wantDirect = decision == WifiDirectHelper.DirectDecision.DIRECT
+                            if (wantDirect != DataStore.wifiDirectActive) {
+                                Logs.d(
+                                    "WiFi direct mode -> $wantDirect (ssid=${WifiDirectHelper.currentSsid()})"
+                                )
+                                applyWifiDirectMode(wantDirect)
+                            }
+                            return@runOnMainDispatcher
+                        }
+                    }
                 }
             }
         }
@@ -417,6 +421,7 @@ class BaseService {
                     addAction(Action.FORCE_RELOAD)
                     addAction(Intent.ACTION_SHUTDOWN)
                     addAction(Action.CLOSE)
+                    addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
                     // addAction(Action.SWITCH_WAKE_LOCK)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
