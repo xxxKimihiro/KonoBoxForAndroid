@@ -357,6 +357,7 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="io.nekohasekai.sagernet.appwidget.ACTION_HOURLY" />
+                <action android:name="io.nekohasekai.sagernet.appwidget.ACTION_CLICK" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -366,14 +367,6 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/face_toggle_widget_info" />
         </receiver>
-
-        <activity
-            android:name="io.nekohasekai.sagernet.appwidget.FaceToggleWidgetActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name="androidx.room.MultiInstanceInvalidationService"
